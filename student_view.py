@@ -588,14 +588,17 @@ def render_interview_stage(client):
     # [우측 열] Gemini 소크라테스 인터뷰
     with col_chat:
         if st.session_state.interview_step == "CHAT":
-            st.subheader("💬 AI 사고 복원 인터뷰")
-            
-            # 이전 대화 렌더링
-            for msg in st.session_state.chat_history:
-                with st.chat_message(msg["role"]):
-                    st.write(msg["content"])
+            st.markdown("### 💬 AI 사고 복원 인터뷰")
+            st.caption("💡 대화를 주고받으며 시험장에서의 인지 과정을 편안하게 복기해 보세요. (이전 대화는 위로 올라갑니다)")
 
-            # 🚨 에러가 발생한 경우 화면에 고정 표시 (사라지지 않음)
+            # 1. 고정 높이 스크롤 메시지 박스 (일반 메신저 방식)
+            chat_box = st.container(height=500)
+            with chat_box:
+                for msg in st.session_state.chat_history:
+                    with st.chat_message(msg["role"]):
+                        st.write(msg["content"])
+
+            # 2. 🚨 에러가 발생한 경우 고정 표시 (채팅창 바로 아래)
             if st.session_state.get("last_chat_error"):
                 st.error("⚠️ **AI 인터뷰 질문 생성 중 오류가 발생했습니다.**")
                 with st.expander("🔍 오류 상세 내역 확인하기 (클릭)", expanded=True):
@@ -603,82 +606,81 @@ def render_interview_stage(client):
                 
                 col_retry, col_close = st.columns([1.5, 1])
                 with col_retry:
-                    # 학생의 마지막 발화가 있으면 바로 재시도 가능
                     if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "user":
                         if st.button("🔄 마지막 생각으로 AI 질문 다시 생성", key="retry_ai_chat_btn", type="primary", use_container_width=True):
                             system_prompt = get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick)
                             gemini_contents = build_gemini_contents(st.session_state.chat_history)
-                            with st.spinner("다시 생각의 경로를 분석 중입니다..."):
-                                try:
-                                    response = call_gemini_safe(
-                                        client,
-                                        contents=gemini_contents,
-                                        config=types.GenerateContentConfig(
-                                            system_instruction=system_prompt,
-                                            temperature=0.3
+                            with chat_box:
+                                with st.spinner("다시 생각의 경로를 분석 중입니다..."):
+                                    try:
+                                        response = call_gemini_safe(
+                                            client,
+                                            contents=gemini_contents,
+                                            config=types.GenerateContentConfig(
+                                                system_instruction=system_prompt,
+                                                temperature=0.3
+                                            )
                                         )
-                                    )
-                                    st.session_state.chat_history.append({"role": "assistant", "content": response.text})
-                                    st.session_state["last_chat_error"] = None
-                                    st.rerun()
-                                except Exception as e:
-                                    st.session_state["last_chat_error"] = str(e)
-                                    st.rerun()
+                                        st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+                                        st.session_state["last_chat_error"] = None
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.session_state["last_chat_error"] = str(e)
+                                        st.rerun()
                 with col_close:
                     if st.button("✖️ 오류 메시지 닫기", key="close_chat_err_btn", use_container_width=True):
                         st.session_state["last_chat_error"] = None
                         st.rerun()
 
-            # 학생 입력창
+            # 3. 대화 3회 이상 시 요약안 작성 버튼 (고정 위치)
+            if len(st.session_state.chat_history) >= 3:
+                if st.button("📝 대화 종료 및 내 사고 요약안 작성하기", use_container_width=True, type="primary"):
+                    with chat_box:
+                        with st.spinner("당시 사고 경로를 1인칭으로 요약 중입니다..."):
+                            summary_prompt = "지금까지의 대화 전문을 바탕으로, 학생이 시험장에서 해당 선지를 고르게 된 '인지 왜곡 및 사고 경로'를 1~2문장으로 요약해 주십시오. 1인칭('나는 ~라고 생각하여 ~했다') 시점으로 작성하세요."
+                            contents_for_summary = build_gemini_contents(st.session_state.chat_history)
+                            contents_for_summary.append(types.Content(
+                                role="user",
+                                parts=[types.Part.from_text(text=summary_prompt)]
+                            ))
+                            try:
+                                summary_res = call_gemini_safe(
+                                    client,
+                                    contents=contents_for_summary
+                                )
+                                st.session_state.draft_summary = summary_res.text
+                                st.session_state.interview_step = "REVIEW"
+                                st.session_state["last_chat_error"] = None
+                                st.rerun()
+                            except Exception as e:
+                                st.session_state["last_chat_error"] = f"사고 요약 작성 실패: {e}"
+                                st.rerun()
+
+            # 4. 학생 입력창 (화면 하단에 항상 고정)
             if user_input := st.chat_input("당시 들었던 생각, 헷갈렸던 문장이나 단어를 솔직히 적어주세요..."):
                 st.session_state["last_chat_error"] = None
                 st.session_state.chat_history.append({"role": "user", "content": user_input})
-                with st.chat_message("user"):
-                    st.write(user_input)
-
-                system_prompt = get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick)
-                gemini_contents = build_gemini_contents(st.session_state.chat_history)
-
-                with st.spinner("생각의 경로를 분석 중입니다..."):
-                    try:
-                        response = call_gemini_safe(
-                            client,
-                            contents=gemini_contents,
-                            config=types.GenerateContentConfig(
-                                system_instruction=system_prompt,
-                                temperature=0.3
-                            )
-                        )
-                        st.session_state.chat_history.append({"role": "assistant", "content": response.text})
-                        st.session_state["last_chat_error"] = None
-                        st.rerun()  # ✅ 성공했을 때만 즉각 새로고침!
-                    except Exception as e:
-                        # ❌ 실패 시 st.rerun()을 실행하지 않고 에러를 세션에 영구 보존!
-                        st.session_state["last_chat_error"] = str(e)
-                        st.error(f"응답 생성 오류: {e}")
-
-            if len(st.session_state.chat_history) >= 3:
-                st.divider()
-                if st.button("📝 대화 종료 및 내 사고 요약안 작성하기", use_container_width=True, type="primary"):
-                    with st.spinner("당시 사고 경로를 1인칭으로 요약 중입니다..."):
-                        summary_prompt = "지금까지의 대화 전문을 바탕으로, 학생이 시험장에서 해당 선지를 고르게 된 '인지 왜곡 및 사고 경로'를 1~2문장으로 요약해 주십시오. 1인칭('나는 ~라고 생각하여 ~했다') 시점으로 작성하세요."
-                        contents_for_summary = build_gemini_contents(st.session_state.chat_history)
-                        contents_for_summary.append(types.Content(
-                            role="user",
-                            parts=[types.Part.from_text(text=summary_prompt)]
-                        ))
+                with chat_box:
+                    with st.chat_message("user"):
+                        st.write(user_input)
+                    with st.spinner("생각의 경로를 분석 중입니다..."):
+                        system_prompt = get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick)
+                        gemini_contents = build_gemini_contents(st.session_state.chat_history)
                         try:
-                            summary_res = call_gemini_safe(
+                            response = call_gemini_safe(
                                 client,
-                                contents=contents_for_summary
+                                contents=gemini_contents,
+                                config=types.GenerateContentConfig(
+                                    system_instruction=system_prompt,
+                                    temperature=0.3
+                                )
                             )
-                            st.session_state.draft_summary = summary_res.text
-                            st.session_state.interview_step = "REVIEW"
+                            st.session_state.chat_history.append({"role": "assistant", "content": response.text})
                             st.session_state["last_chat_error"] = None
-                            st.rerun()  # ✅ 성공 시에만 리런
+                            st.rerun()
                         except Exception as e:
-                            st.session_state["last_chat_error"] = f"사고 요약 작성 실패: {e}"
-                            st.error(f"요약 중 오류: {e}")
+                            st.session_state["last_chat_error"] = str(e)
+                            st.rerun()
 
         elif st.session_state.interview_step == "REVIEW":
             st.subheader("🔍 사고 복원 내용 확인 및 수정")
