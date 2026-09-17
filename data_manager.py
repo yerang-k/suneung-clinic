@@ -1,7 +1,13 @@
 import os
 import json
 import base64
+import threading
 from datetime import datetime
+import requests
+
+# 구글 시트 클라우드 동기화 런타임 상태
+_last_sync_time = None
+_has_auto_synced = False
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 STUDENTS_FILE = os.path.join(DATA_DIR, "students.json")
@@ -97,13 +103,167 @@ def init_data_dirs():
         with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
             json.dump([], f, ensure_ascii=False, indent=2)
 
+# ==========================================
+# --- 구글 스프레드시트(GAS) 클라우드 영구 동기화 엔진 ---
+# ==========================================
+def get_gas_api_url() -> str:
+    """Streamlit Secrets, 환경변수, 또는 로컬 admin_config에서 GAS URL 조회"""
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets"):
+            if "GAS_API_URL" in st.secrets:
+                return str(st.secrets["GAS_API_URL"]).strip()
+            if "gas_api_url" in st.secrets:
+                return str(st.secrets["gas_api_url"]).strip()
+    except Exception:
+        pass
+
+    env_url = os.environ.get("GAS_API_URL", "").strip()
+    if env_url:
+        return env_url
+
+    try:
+        if os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                c = json.load(f)
+                return str(c.get("gas_api_url", "")).strip()
+    except Exception:
+        pass
+    return ""
+
+def sync_from_google_sheets(force: bool = False):
+    """
+    구글 스프레드시트(GAS)로부터 시험지, 학생, 설정, 제출기록을 가져와 로컬 캐시를 갱신합니다.
+    """
+    global _last_sync_time, _has_auto_synced
+    gas_url = get_gas_api_url()
+    if not gas_url or not gas_url.startswith("http"):
+        return False, "연동된 구글 스프레드시트(GAS) URL이 없습니다."
+
+    try:
+        sep = "&" if "?" in gas_url else "?"
+        req_url = f"{gas_url}{sep}action=sync_all"
+        resp = requests.get(req_url, timeout=8)
+        if resp.status_code == 200:
+            data = resp.json()
+            init_data_dirs()
+
+            # 1. Config 동기화
+            if "config" in data and isinstance(data["config"], dict) and data["config"]:
+                local_cfg = {}
+                if os.path.exists(CONFIG_FILE):
+                    try:
+                        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                            local_cfg = json.load(f)
+                    except Exception:
+                        pass
+                saved_gas = local_cfg.get("gas_api_url", gas_url)
+                local_cfg.update(data["config"])
+                if saved_gas:
+                    local_cfg["gas_api_url"] = saved_gas
+                with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                    json.dump(local_cfg, f, ensure_ascii=False, indent=2)
+
+            # 2. Exams 동기화
+            if "exams" in data and isinstance(data["exams"], dict) and data["exams"]:
+                local_exams = DEFAULT_EXAMS.copy()
+                if os.path.exists(EXAMS_META_FILE):
+                    try:
+                        with open(EXAMS_META_FILE, "r", encoding="utf-8") as f:
+                            local_exams = json.load(f)
+                    except Exception:
+                        pass
+                local_exams.update(data["exams"])
+                with open(EXAMS_META_FILE, "w", encoding="utf-8") as f:
+                    json.dump(local_exams, f, ensure_ascii=False, indent=2)
+
+            # 3. Students 동기화
+            if "students" in data and isinstance(data["students"], list) and data["students"]:
+                local_students = DEFAULT_STUDENTS.copy()
+                if os.path.exists(STUDENTS_FILE):
+                    try:
+                        with open(STUDENTS_FILE, "r", encoding="utf-8") as f:
+                            local_students = json.load(f)
+                    except Exception:
+                        pass
+                s_map = {str(s["student_id"]).strip(): s for s in local_students}
+                for s in data["students"]:
+                    s_id = str(s.get("student_id", "")).strip()
+                    if s_id:
+                        s_map[s_id] = s
+                with open(STUDENTS_FILE, "w", encoding="utf-8") as f:
+                    json.dump(list(s_map.values()), f, ensure_ascii=False, indent=2)
+
+            # 4. Submissions 동기화
+            if "submissions" in data and isinstance(data["submissions"], list) and data["submissions"]:
+                with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
+                    json.dump(data["submissions"], f, ensure_ascii=False, indent=2)
+
+            _last_sync_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            _has_auto_synced = True
+            return True, f"구글 시트와 성공적으로 동기화되었습니다 ({_last_sync_time})."
+        else:
+            return False, f"구글 시트 응답 오류 (HTTP {resp.status_code})"
+    except Exception as e:
+        return False, f"구글 시트 동기화 실패: {e}"
+
+def push_to_google_sheets(action: str, payload_data: dict):
+    """구글 시트(GAS)로 변경 사항을 비동기 전송"""
+    gas_url = get_gas_api_url()
+    if not gas_url or not gas_url.startswith("http"):
+        return
+
+    def _worker():
+        try:
+            body = {"action": action}
+            body.update(payload_data)
+            requests.post(gas_url, json=body, timeout=8)
+        except Exception:
+            pass
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+
+def push_all_to_google_sheets():
+    """현재 로컬의 시험지, 학생, 설정을 구글 시트로 한 번에 백업 전송"""
+    gas_url = get_gas_api_url()
+    if not gas_url or not gas_url.startswith("http"):
+        return False, "구글 시트(GAS) URL이 설정되지 않았습니다."
+
+    try:
+        body = {
+            "action": "sync_push_all",
+            "exams": get_exams(),
+            "students": get_students(),
+            "config": get_admin_config()
+        }
+        resp = requests.post(gas_url, json=body, timeout=10)
+        if resp.status_code == 200:
+            return True, "로컬의 전체 데이터가 구글 스프레드시트에 성공적으로 백업되었습니다!"
+        return False, f"백업 실패 (HTTP {resp.status_code})"
+    except Exception as e:
+        return False, f"백업 전송 중 오류: {e}"
+
+def ensure_auto_synced():
+    """앱 런타임 시작 시 1회 구글 시트에서 최신 데이터 자동 동기화"""
+    global _has_auto_synced
+    if not _has_auto_synced:
+        _has_auto_synced = True
+        gas_url = get_gas_api_url()
+        if gas_url and gas_url.startswith("http"):
+            threading.Thread(target=sync_from_google_sheets, daemon=True).start()
+
+def get_last_sync_time():
+    global _last_sync_time
+    return _last_sync_time
+
 # --- 설정 (Config) ---
 def get_admin_config():
     init_data_dirs()
+    ensure_auto_synced()
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            # 기본 키 보장
             for k, v in DEFAULT_CONFIG.items():
                 if k not in data:
                     data[k] = v
@@ -115,6 +275,8 @@ def save_admin_config(config):
     init_data_dirs()
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
+    # 구글 시트에 즉시 백업 전송
+    push_to_google_sheets("save_config", {"config": config})
 
 def verify_admin_password(password: str) -> bool:
     cfg = get_admin_config()
@@ -173,6 +335,7 @@ def clear_student_api_key():
 # --- 학생 관리 (Students) ---
 def get_students():
     init_data_dirs()
+    ensure_auto_synced()
     try:
         with open(STUDENTS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -189,15 +352,19 @@ def add_student(student_id: str, name: str, password: str):
     s_id = str(student_id).strip()
     s_name = str(name).strip()
     s_pw = str(password).strip()
+    updated = False
     for s in students:
         if str(s.get("student_id", "")).strip() == s_id:
             s["name"] = s_name
             s["password"] = s_pw
-            save_students(students)
-            return True, "학생 정보가 업데이트되었습니다."
-    students.append({"student_id": s_id, "name": s_name, "password": s_pw})
+            updated = True
+            break
+    if not updated:
+        students.append({"student_id": s_id, "name": s_name, "password": s_pw})
+    
     save_students(students)
-    return True, "새 학생이 등록되었습니다."
+    push_to_google_sheets("save_student", {"student": {"student_id": s_id, "name": s_name, "password": s_pw}})
+    return True, "학생 정보가 업데이트되었습니다." if updated else "새 학생이 등록되었습니다."
 
 def delete_student(student_id: str):
     students = get_students()
@@ -205,6 +372,7 @@ def delete_student(student_id: str):
     filtered = [s for s in students if str(s.get("student_id", "")).strip() != s_id]
     if len(filtered) != len(students):
         save_students(filtered)
+        push_to_google_sheets("delete_student", {"student_id": s_id})
         return True, "학생이 삭제되었습니다."
     return False, "해당 학번의 학생을 찾을 수 없습니다."
 
@@ -223,6 +391,7 @@ def verify_student(student_id: str, name: str, password: str):
 # --- 시험 및 PDF 관리 (Exams) ---
 def get_exams():
     init_data_dirs()
+    ensure_auto_synced()
     try:
         with open(EXAMS_META_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -256,6 +425,7 @@ def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes =
     }
     with open(EXAMS_META_FILE, "w", encoding="utf-8") as f:
         json.dump(exams, f, ensure_ascii=False, indent=2)
+    push_to_google_sheets("save_exam", {"exam": exams[exam_id]})
     return True, f"'{title}' 시험지가 성공적으로 등록/저장되었습니다."
 
 def attach_pdf_to_exam(exam_id: str, pdf_bytes: bytes = None, filename: str = None, pdf_url: str = ""):
@@ -279,6 +449,7 @@ def attach_pdf_to_exam(exam_id: str, pdf_bytes: bytes = None, filename: str = No
     exams[exam_id] = ex
     with open(EXAMS_META_FILE, "w", encoding="utf-8") as f:
         json.dump(exams, f, ensure_ascii=False, indent=2)
+    push_to_google_sheets("save_exam", {"exam": ex})
     return True, f"'{ex['title']}'에 PDF가 성공적으로 연결되었습니다!"
 
 def delete_exam(exam_id: str):
@@ -288,6 +459,7 @@ def delete_exam(exam_id: str):
         del exams[exam_id]
         with open(EXAMS_META_FILE, "w", encoding="utf-8") as f:
             json.dump(exams, f, ensure_ascii=False, indent=2)
+        push_to_google_sheets("delete_exam", {"exam_id": exam_id})
         return True, "시험지가 삭제되었습니다."
     return False, "해당 시험지를 찾을 수 없습니다."
 
@@ -335,9 +507,11 @@ def save_submission(sub_data: dict):
     subs.append(sub_data)
     with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
         json.dump(subs, f, ensure_ascii=False, indent=2)
+    push_to_google_sheets("submit_diagnosis", {"submission": sub_data})
 
 def get_submissions():
     init_data_dirs()
+    ensure_auto_synced()
     try:
         with open(SUBMISSIONS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)

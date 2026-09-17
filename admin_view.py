@@ -5,7 +5,8 @@ from data_manager import (
     get_admin_config, save_admin_config,
     get_exams, save_exam, get_exam_pdf_base64,
     attach_pdf_to_exam, get_exam_pdf_source, delete_exam,
-    get_submissions, get_student_vulnerability_profile, get_student_submissions
+    get_submissions, get_student_vulnerability_profile, get_student_submissions,
+    sync_from_google_sheets, push_all_to_google_sheets, get_last_sync_time, get_gas_api_url
 )
 from pdf_viewer import render_pdf_viewer
 
@@ -211,14 +212,48 @@ def render_admin_dashboard():
     with tab3:
         st.subheader("⚙️ 마스터 연동 및 시스템 설정")
         st.markdown("""
-        이곳에서 저장한 설정은 **수정하기 전까지 영구적으로 저장 및 유지**됩니다.  
-        선생님이 여기서 Gemini API 키를 등록해두시면, 학생들은 별도의 키 입력 없이도 즉시 AI 인터뷰를 진행할 수 있습니다.
+        선생님의 **구글 드라이브 및 구글 스프레드시트(Google Apps Script)**와 연동하여 시험지 목록, 학생 계정, 관리자 설정, 진단 기록을 **클라우드에 영구 보존**합니다.  
+        Streamlit Cloud 서버가 재시작되거나 새로고침되어도 구글 시트로부터 데이터가 100% 자동 복원됩니다.
         """)
 
+        # 1. 클라우드 동기화 제어 패널
+        st.markdown("##### ☁️ 구글 시트 실시간 클라우드 동기화")
         cfg = get_admin_config()
+        gas_url = get_gas_api_url()
+        last_sync = get_last_sync_time()
+
+        col_sync1, col_sync2, col_sync3 = st.columns([1.5, 1.5, 2])
+        with col_sync1:
+            if st.button("🔄 구글 시트에서 최신 데이터 불러오기", use_container_width=True, type="primary"):
+                with st.spinner("구글 스프레드시트와 동기화 중..."):
+                    ok, msg = sync_from_google_sheets(force=True)
+                    if ok:
+                        st.success(msg)
+                        st.rerun()
+                    else:
+                        st.error(msg)
+        with col_sync2:
+            if st.button("☁️ 현재 로컬 데이터를 구글 시트로 백업", use_container_width=True):
+                with st.spinner("구글 스프레드시트로 전체 백업 전송 중..."):
+                    ok, msg = push_all_to_google_sheets()
+                    if ok:
+                        st.success(msg)
+                    else:
+                        st.error(msg)
+        with col_sync3:
+            if gas_url:
+                sync_caption = f"🟢 **구글 시트 연동 활성화됨**"
+                if last_sync:
+                    sync_caption += f" (최근 동기화: {last_sync})"
+                st.caption(sync_caption)
+            else:
+                st.caption("⚪ **구글 시트 미연동** (아래 폼에 GAS URL을 등록해 주세요)")
+
+        st.divider()
+
+        # 2. 마스터 설정 폼
         master_url = cfg.get("google_drive_folder_url", "")
         master_api_key = cfg.get("gemini_api_key", "")
-        gas_url = cfg.get("gas_api_url", "")
 
         with st.form("drive_master_form"):
             st.markdown("##### 🔑 교사용 공용 Gemini API Key")
@@ -231,21 +266,21 @@ def render_admin_dashboard():
             )
 
             st.divider()
+            st.markdown("##### 🌐 교사용 구글 스프레드시트(GAS) 웹앱 URL (강력 권장 - 영구 보존용)")
+            st.caption("시험지, 학생 계정, 제출 기록을 영구히 저장할 Google Apps Script 웹앱 URL입니다. (예: `https://script.google.com/macros/s/.../exec`)")
+            new_gas_url = st.text_input(
+                "GAS 웹앱 /exec URL",
+                value=gas_url,
+                placeholder="https://script.google.com/macros/s/.../exec"
+            )
+
+            st.divider()
             st.markdown("##### 📂 구글 드라이브 기출 모의고사 마스터 폴더")
             st.caption("최근 수능 및 평가원 모의고사 전체 PDF가 모인 구글 드라이브 폴더 공유 링크를 입력하세요.")
             new_master_url = st.text_input(
                 "구글 드라이브 마스터 폴더 URL",
                 value=master_url,
                 placeholder="https://drive.google.com/drive/folders/..."
-            )
-            
-            st.divider()
-            st.markdown("##### 🌐 교사용 구글 스프레드시트(GAS) 웹앱 URL (선택사항)")
-            st.caption("학생 진단 제출 시 실시간으로 기록을 누적할 Google Apps Script 웹앱 URL입니다.")
-            new_gas_url = st.text_input(
-                "GAS 웹앱 /exec URL",
-                value=gas_url,
-                placeholder="https://script.google.com/macros/s/..."
             )
 
             st.divider()
@@ -264,21 +299,41 @@ def render_admin_dashboard():
                 if admin_pw_change.strip():
                     cfg["admin_password"] = admin_pw_change.strip()
                 save_admin_config(cfg)
-                st.success("✅ 모든 설정이 파일에 안전하게 저장되었습니다! 다시 수정하기 전까지 영구 유지됩니다.")
+                st.success("✅ 모든 설정이 저장되고 구글 시트와 동기화되었습니다!")
                 st.rerun()
 
         st.divider()
-        st.markdown("##### 📋 현재 저장된 설정 상태")
-        col_st1, col_st2 = st.columns(2)
-        with col_st1:
-            api_status = "🟢 등록됨 (공용 활성화)" if cfg.get("gemini_api_key") else "⚪ 미등록 (학생 개별 입력 필요)"
-            st.write(f"• **교사용 API 키:** {api_status}")
-            drive_status = "🟢 연동됨" if cfg.get("google_drive_folder_url") else "⚪ 미등록"
-            st.write(f"• **구글 드라이브 폴더:** {drive_status}")
-        with col_st2:
-            gas_status = "🟢 연동됨" if cfg.get("gas_api_url") else "⚪ 미등록"
-            st.write(f"• **구글 스프레드시트(GAS):** {gas_status}")
-            st.write("• **관리자 비밀번호:** 🔒 설정됨")
+
+        # 3. Google Apps Script 1분 설치 가이드 Expander
+        with st.expander("📖 구글 스프레드시트 1분 연동 코드 및 설치 방법 (클릭하여 열기)"):
+            st.markdown("""
+            ### 🛠️ 1분 만에 내 구글 시트에 연동하는 법
+            1. 새 [구글 스프레드시트](https://sheets.new)를 만듭니다. (이름: `수능 국어 사고 복원 클리닉 DB`)
+            2. 상단 메뉴 **[확장 프로그램] ➔ [Apps Script]**를 클릭합니다.
+            3. 열린 편집기의 `Code.gs` 내용을 모두 지우고, **아래 코드를 복사해서 붙여넣기**한 뒤 저장(`Ctrl + S`)합니다.
+            4. 상단 실행 함수 드롭다운에서 **`setup`**을 선택하고 **[실행]**을 누릅니다. (첫 실행 시 계정 권한 승인 팝업 진행)
+            5. 우측 상단 **[배포] ➔ [새 배포]**를 클릭합니다:
+               - 종류: **웹 앱 (Web app)**
+               - 다음 사용자 권한으로 실행: **나 (내 계정)**
+               - 액세스 권한: **모든 사용자 (Anyone)** *(중요!)*
+            6. 배포 완료 후 나타나는 **웹 앱 URL (`https://script.google.com/.../exec`)**을 복사하여 위 [GAS 웹앱 URL] 칸에 입력하고 저장하면 끝납니다!
+            
+            > **💡 Streamlit Cloud 영구 보존 팁:**  
+            > Streamlit Cloud 대시보드 ➔ 해당 앱의 `Settings` ➔ `Secrets`에 아래와 같이 한 줄 넣어두시면, 서버가 재배포되어도 URL이 절대 초기화되지 않습니다:  
+            > ```toml
+            > GAS_API_URL = "https://script.google.com/macros/s/.../exec"
+            > ```
+            """)
+            
+            # Code.gs 코드 내용 읽어서 표시
+            try:
+                gas_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gas", "Code.gs")
+                if os.path.exists(gas_file_path):
+                    with open(gas_file_path, "r", encoding="utf-8") as gf:
+                        code_content = gf.read()
+                    st.code(code_content, language="javascript")
+            except Exception:
+                pass
 
         st.divider()
         with st.expander("💡 AI가 자동으로 탐색·매핑하는 6대 취약점별 기출 문항 풀 (인덱스 확인)"):
