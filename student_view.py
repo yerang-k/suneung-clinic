@@ -1211,6 +1211,26 @@ def render_interview_stage(client):
         border: 1px solid #EBEBE7;
         transition: all 0.2s ease-in-out;
     }
+    /* 우측 열 chat_input 한 줄 나란히 배치 강제 (줄바꿈 방지) */
+    div[data-testid="stChatInput"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+    }
+    div[data-testid="stChatInput"] [data-baseweb="textarea"] {
+        flex: 1 1 auto !important;
+        max-width: calc(100% - 44px) !important;
+    }
+    div[data-testid="stChatInput"] textarea {
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+    }
+    div[data-testid="stChatInput"] button {
+        flex: 0 0 34px !important;
+        margin-left: auto !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 

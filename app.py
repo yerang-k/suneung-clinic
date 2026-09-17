@@ -170,7 +170,7 @@ button[kind="primary"]:hover {
 }
 
 /* Secondary Button: White Background, Ebony Text, Warm Gray Border */
-button[kind="secondary"], button:not([kind="primary"]) {
+button[kind="secondary"], button:not([kind="primary"]):not([data-testid="stChatInputSubmitButton"]) {
     background-color: #FFFFFF !important;
     color: #0E0E29 !important;
     border: 1px solid #D1D1C8 !important;
@@ -178,23 +178,111 @@ button[kind="secondary"], button:not([kind="primary"]) {
     font-weight: 500 !important;
     transition: all 0.15s ease-in-out !important;
 }
-button[kind="secondary"]:hover, button:not([kind="primary"]):hover {
+button[kind="secondary"]:hover, button:not([kind="primary"]):not([data-testid="stChatInputSubmitButton"]):hover {
     background-color: #F6F6F5 !important;
     border-color: #16B8A2 !important;
     color: #046663 !important;
 }
 
 /* 7. 입력창 및 셀렉트박스 (Focus 시 Mountain Meadow #16B8A2 아웃라인) */
-input[type="text"], input[type="password"], textarea, select, .stSelectbox [data-baseweb="select"] {
+input[type="text"], input[type="password"], textarea:not([data-testid="stChatInputTextArea"]), select, .stSelectbox [data-baseweb="select"] {
     border: 1px solid #D1D1C8 !important;
     border-radius: 8px !important;
     color: #0E0E29 !important;
     background-color: #FFFFFF !important;
 }
-input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
+input[type="text"]:focus, input[type="password"]:focus, textarea:not([data-testid="stChatInputTextArea"]):focus {
     border-color: #16B8A2 !important;
     box-shadow: 0 0 0 2px rgba(22, 184, 162, 0.2) !important;
     outline: none !important;
+}
+
+/* 7-1. st.chat_input: 1줄 가로 정렬 강제 & 채팅창 길이 자동 조절 & 화살표 인라인 배치 */
+[data-testid="stChatInput"] {
+    background-color: #FFFFFF !important;
+    border: 1px solid #D1D1C8 !important;
+    border-radius: 10px !important;
+    padding: 3px 6px !important;
+    box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.05) !important;
+}
+[data-testid="stChatInput"]:focus-within {
+    border-color: #16B8A2 !important;
+    box-shadow: 0 0 0 2px rgba(22, 184, 162, 0.2) !important;
+}
+[data-testid="stChatInput"] > div,
+[data-testid="stChatInput"] form,
+[data-testid="stChatInput"] [class*="stChatInput"] {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 6px !important;
+    width: 100% !important;
+}
+[data-testid="stChatInput"] [data-baseweb="textarea"],
+[data-testid="stChatInput"] div:has(> textarea) {
+    flex: 1 1 auto !important;
+    width: calc(100% - 42px) !important;
+    max-width: calc(100% - 42px) !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+[data-testid="stChatInput"] textarea,
+[data-testid="stChatInputTextArea"] {
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    padding: 8px 10px !important;
+    font-size: 0.93rem !important;
+    line-height: 1.4 !important;
+    color: #0E0E29 !important;
+    resize: none !important;
+    width: 100% !important;
+}
+[data-testid="stChatInput"] textarea:focus,
+[data-testid="stChatInputTextArea"]:focus {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+[data-testid="stChatInput"] button,
+button[data-testid="stChatInputSubmitButton"] {
+    flex: 0 0 34px !important;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    border-radius: 8px !important;
+    background-color: #046663 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    box-shadow: 0 1px 3px rgba(4, 102, 99, 0.2) !important;
+    transition: all 0.15s ease-in-out !important;
+}
+[data-testid="stChatInput"] button:hover,
+button[data-testid="stChatInputSubmitButton"]:hover {
+    background-color: #035350 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    transform: scale(1.05) !important;
+}
+[data-testid="stChatInput"] button svg,
+button[data-testid="stChatInputSubmitButton"] svg {
+    fill: #FFFFFF !important;
+    color: #FFFFFF !important;
+    width: 18px !important;
+    height: 18px !important;
 }
 
 /* 8. 탭 (Tabs) - Lattice 청록색 언더라인 */
