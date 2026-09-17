@@ -34,26 +34,44 @@ st.set_page_config(
 
 # ⭐️ 전역 스타일: 상단 GitHub 아이콘, Edit(연필) 아이콘, 햄버거 메뉴, 툴바 완전 제거 & 깔끔한 여백
 st.markdown("""
-/* Streamlit 우측 상단 GitHub 아이콘, Edit/연필 아이콘, 햄버거 메뉴, 배포 버튼만 정확히 제거 */
-div[data-testid="stToolbar"],
-div[data-testid="stDecoration"],
-div[data-testid="stStatusWidget"],
+<style>
+/* Streamlit 우측 상단 GitHub 아이콘, Edit/연필 아이콘, Share, 별, 햄버거 메뉴, 배포 버튼 완전 제거 */
+[data-testid="stToolbar"],
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"],
 #MainMenu,
 footer,
 .stDeployButton,
-header [data-testid="stToolbar"] {
+header [data-testid="stToolbar"],
+header [data-testid="stToolbarActions"],
+header [data-testid="stHeaderActionElements"],
+header div[class*="toolbar"],
+header div[class*="stAppToolbar"],
+header button:not([data-testid="stSidebarCollapsedControl"] button):not([data-testid="stSidebarCollapsedControl"]) {
     display: none !important;
     visibility: hidden !important;
+    opacity: 0 !important;
     height: 0 !important;
+    width: 0 !important;
+    pointer-events: none !important;
 }
-/* 상단 헤더 자체는 투명하게 유지하여 좌측 사이드바 열기 토글 버튼(>)이 정상 작동하도록 보장 */
+
+/* 상단 헤더 자체는 투명하게 유지하여 좌측 사이드바 열기 토글 버튼(>>)이 정상 작동하도록 보장 */
 header[data-testid="stHeader"] {
     background: transparent !important;
     z-index: 100 !important;
 }
+
+/* 좌측 사이드바 열기 토글 버튼 확실히 보이도록 유지 */
+[data-testid="stSidebarCollapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
 /* 메인 컨테이너 상단 여백 최적화 */
 .block-container {
-    padding-top: 1.8rem !important;
+    padding-top: 1.5rem !important;
     padding-bottom: 2.5rem !important;
 }
 </style>
