@@ -283,12 +283,12 @@ def render_kakaotalk_chat(chat_history):
         if role == "assistant":
             html_items.append(f"""
             <div style="display: flex; align-items: flex-start; gap: 8px; justify-content: flex-start; margin-right: 15%;">
-                <div style="width: 34px; height: 34px; border-radius: 50%; background: #e0f2fe; border: 1px solid #bae6fd; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.06);">
+                <div style="width: 34px; height: 34px; border-radius: 50%; background: #E6F3F2; border: 1px solid #B8E1BE; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0; box-shadow: 0 1px 2px rgba(14, 14, 41, 0.06);">
                     🎯
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 3px; max-width: 88%;">
-                    <span style="font-size: 0.78rem; color: #64748b; font-weight: 600; margin-left: 2px;">AI 사고 복원 코치</span>
-                    <div style="background: #ffffff; color: #0f172a; padding: 10px 14px; border-radius: 4px 14px 14px 14px; border: 1px solid #e2e8f0; font-size: 0.95rem; line-height: 1.55; box-shadow: 0 1px 3px rgba(0,0,0,0.04); word-break: break-word;">
+                    <span style="font-size: 0.78rem; color: #59594A; font-weight: 600; margin-left: 2px;">AI 사고 복원 코치</span>
+                    <div style="background: #ffffff; color: #0E0E29; padding: 10px 14px; border-radius: 4px 12px 12px 12px; border: 1px solid #EBEBE7; font-size: 0.95rem; line-height: 1.55; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.05); word-break: break-word;">
                         {safe_text}
                     </div>
                 </div>
@@ -297,7 +297,7 @@ def render_kakaotalk_chat(chat_history):
         else:
             html_items.append(f"""
             <div style="display: flex; align-items: flex-end; justify-content: flex-end; margin-left: 15%;">
-                <div style="background: #fee500; color: #191600; padding: 10px 14px; border-radius: 14px 4px 14px 14px; font-size: 0.95rem; font-weight: 500; line-height: 1.55; box-shadow: 0 1px 3px rgba(0,0,0,0.07); word-break: break-word; border: 1px solid #fde047; max-width: 88%;">
+                <div style="background: #fee500; color: #191600; padding: 10px 14px; border-radius: 12px 4px 12px 12px; font-size: 0.95rem; font-weight: 500; line-height: 1.55; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.07); word-break: break-word; border: 1px solid #fde047; max-width: 88%;">
                     {safe_text}
                 </div>
             </div>
@@ -366,15 +366,15 @@ def render_student_welcome_header():
     }.get(stage, "진단 진행 중")
 
     st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #bae6fd; border-radius: 12px; padding: 1.1rem 1.5rem; margin-bottom: 1.2rem; box-shadow: 0 2px 5px rgba(0,0,0,0.03);">
+    <div style="background: linear-gradient(135deg, #F0F7F6 0%, #E6F3F2 100%); border: 1px solid #B8E1BE; border-radius: 14px; padding: 1.15rem 1.5rem; margin-bottom: 1.2rem; box-shadow: 0 4px 12px -2px rgba(14, 14, 41, 0.05);">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
             <div>
-                <h2 style="color: #0369a1; margin: 0; font-size: 1.55rem; font-weight: 800; letter-spacing: -0.5px;">
-                    👋 반가워요, <span style="color: #0284c7;">{student['name']}</span> ({student['student_id']}) 학생!
+                <h2 style="color: #0E0E29; margin: 0; font-size: 1.55rem; font-weight: 800; letter-spacing: -0.5px;">
+                    👋 반가워요, <span style="color: #046663;">{student['name']}</span> ({student['student_id']}) 학생!
                 </h2>
             </div>
-            <div style="text-align: right; background: #ffffff; padding: 8px 16px; border-radius: 8px; border: 1px solid #bfdbfe;">
-                <b style="font-size: 1.02rem; color: #0369a1;">🎯 {stage_desc}</b>
+            <div style="text-align: right; background: #ffffff; padding: 8px 16px; border-radius: 8px; border: 1px solid #B8E1BE; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                <b style="font-size: 1.02rem; color: #046663;">🎯 {stage_desc}</b>
             </div>
         </div>
     </div>
@@ -436,7 +436,7 @@ def render_stage_navigation_bar():
 def render_student_login():
     st.markdown("""
     <div style="text-align: center; margin-top: 2rem; margin-bottom: 2rem;">
-        <h1 style="color: #0f172a;">🎯 수능 국어 사고 복원 클리닉</h1>
+        <h1 style="color: #0E0E29; font-weight: 800; letter-spacing: -0.5px;">🎯 수능 국어 사고 복원 클리닉</h1>
     </div>
     """, unsafe_allow_html=True)
 
@@ -572,9 +572,9 @@ def render_student_mypage():
                 badge_color = "#ef4444" if rank == 1 else ("#f97316" if rank == 2 else "#eab308")
                 ratio = round(count / max(1, profile['total_questions']) * 100, 1)
                 st.markdown(f"""
-                <div style="background-color: #f8fafc; border-left: 4px solid {badge_color}; padding: 12px 14px; margin-bottom: 10px; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                    <div style="font-weight: bold; color: #1e293b; font-size: 1.05rem;">{rank}위: {tag}</div>
-                    <div style="color: #64748b; font-size: 0.9rem; margin-top: 4px;">총 <b>{count}문항</b>에서 감지 (전체 분석의 {ratio}%)</div>
+                <div style="background-color: #F6F6F5; border-left: 4px solid {badge_color}; border-top: 1px solid #EBEBE7; border-right: 1px solid #EBEBE7; border-bottom: 1px solid #EBEBE7; padding: 12px 14px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.05);">
+                    <div style="font-weight: 700; color: #0E0E29; font-size: 1.05rem;">{rank}위: {tag}</div>
+                    <div style="color: #59594A; font-size: 0.9rem; margin-top: 4px;">총 <b>{count}문항</b>에서 감지 (전체 분석의 {ratio}%)</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -585,7 +585,7 @@ def render_student_mypage():
                     {"사고 오류 유형": k, "감지 횟수": v}
                     for k, v in profile["tag_counts"].items()
                 ]).sort_values(by="감지 횟수", ascending=True)
-                st.bar_chart(df_tags.set_index("사고 오류 유형"), horizontal=True, color="#0284c7")
+                st.bar_chart(df_tags.set_index("사고 오류 유형"), horizontal=True, color="#046663")
 
     with tab_rules:
         st.subheader("🎯 수능장 지참용 나만의 행동 원칙 (Action Rules)")
@@ -596,7 +596,7 @@ def render_student_mypage():
                     col_r1, col_r2 = st.columns([3.2, 1])
                     with col_r1:
                         st.markdown(f"**📌 [{r['exam_title']}] {r['q_num']}번 문항** `오류: {r['error_tag']}`")
-                        st.markdown(f"💡 **나의 행동 원칙:** <span style='color: #0369a1; font-weight: bold; font-size: 1.05rem;'>\"{r['action_rule']}\"</span>", unsafe_allow_html=True)
+                        st.markdown(f"💡 **나의 행동 원칙:** <span style='color: #046663; font-weight: 700; font-size: 1.05rem;'>\"{r['action_rule']}\"</span>", unsafe_allow_html=True)
                     with col_r2:
                         st.caption(f"📅 진단일: {r['timestamp']}")
         else:
@@ -672,8 +672,8 @@ def render_omr_stage():
         st.info(f"💡 **누적 취약점 경보**: 지난 진단에서 {top_tags_text} 패턴이 자주 감지되었습니다. 이번 시험지에서도 비슷한 사고 왜곡이 발생하지 않았는지 주의 깊게 복기해 보세요!")
 
     st.markdown("""
-    <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 12px 16px; border-radius: 6px; margin-bottom: 1.2rem;">
-        <b style="color: #1e293b; font-size: 1.05rem;">📝 1단계: 시험지 선택 및 OMR 풀이 상태 마킹</b>
+    <div style="background-color: #F6F6F5; border-left: 4px solid #046663; border-top: 1px solid #EBEBE7; border-right: 1px solid #EBEBE7; border-bottom: 1px solid #EBEBE7; padding: 12px 16px; border-radius: 8px; margin-bottom: 1.2rem; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+        <b style="color: #0E0E29; font-size: 1.05rem;">📝 1단계: 시험지 선택 및 OMR 풀이 상태 마킹</b>
     </div>
     """, unsafe_allow_html=True)
 
@@ -797,11 +797,11 @@ def render_omr_stage():
 
     # 상단 2단 그룹 헤더: [문항 풀이 상태] vs [내가 체크한 답]
     st.markdown("""
-    <div style="display: flex; gap: 8px; margin-top: 8px; margin-bottom: 6px; font-weight: 700; font-size: 0.93rem;">
-        <div style="flex: 4; background-color: #f1f5f9; color: #334155; padding: 8px 12px; border-radius: 6px; text-align: center; border: 1px solid #cbd5e1;">
+    <div style="display: flex; gap: 8px; margin-top: 8px; margin-bottom: 8px; font-weight: 700; font-size: 0.93rem;">
+        <div style="flex: 4; background-color: #F6F6F5; color: #404035; padding: 9px 12px; border-radius: 8px; text-align: center; border: 1px solid #EBEBE7;">
             📋 문항 풀이 상태
         </div>
-        <div style="flex: 5; background-color: #e0f2fe; color: #0369a1; padding: 8px 12px; border-radius: 6px; text-align: center; border: 1px solid #7dd3fc;">
+        <div style="flex: 5; background-color: #E6F3F2; color: #046663; padding: 9px 12px; border-radius: 8px; text-align: center; border: 1px solid #B8E1BE;">
             ✏️ 내가 체크한 답 (실제 선택한 선지)
         </div>
     </div>
@@ -877,11 +877,11 @@ def render_omr_stage():
     if not grading_res:
         # 아직 채점하기 전 상태: [OMR 제출 및 자동 정오 판정하기] 버튼 노출
         st.markdown("""
-        <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 14px 18px; border-radius: 8px; margin: 16px 0;">
-            <span style="font-size: 1.05rem; font-weight: bold; color: #0f172a;">
+        <div style="background-color: #F6F6F5; border: 1px solid #EBEBE7; border-left: 4px solid #046663; padding: 14px 18px; border-radius: 8px; margin: 16px 0; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+            <span style="font-size: 1.05rem; font-weight: 700; color: #0E0E29;">
                 💡 OMR 마킹을 마쳤다면 아래 버튼을 눌러 공식 정답표와 자동 대조(채점)를 진행하세요.
             </span>
-            <div style="margin-top: 6px; font-size: 0.92rem; color: #64748b;">
+            <div style="margin-top: 6px; font-size: 0.92rem; color: #59594A; line-height: 1.55;">
                 앱이 실제 정답과 대조하여 마킹 실수나 착각을 바로잡고, <b>'확신 오답'</b>, <b>'찍어서 맞힌 문항'</b> 등 메타인지 매트릭스를 정밀 분석합니다.
             </div>
         </div>
@@ -902,17 +902,17 @@ def render_omr_stage():
         with st.container(border=True):
             st.markdown(f"### 📊 자동 채점 결과 및 메타인지 정오 분석")
             st.markdown(f"""
-            <div style="display: flex; justify-content: space-between; align-items: center; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 12px 18px; margin-bottom: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #F0F7F6; border: 1px solid #B8E1BE; border-radius: 12px; padding: 12px 18px; margin-bottom: 14px; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
                 <div>
-                    <span style="font-size: 1.25rem; font-weight: 800; color: #166534;">
+                    <span style="font-size: 1.25rem; font-weight: 800; color: #046663;">
                         🎯 정답률: {acc_pct}% ({correct_n} / {total_q} 문항)
                     </span>
-                    <span style="margin-left: 14px; font-size: 0.98rem; color: #374151;">
+                    <span style="margin-left: 14px; font-size: 0.98rem; color: #404035;">
                         (⭕ 정답: <b>{correct_n}개</b> | ❌ 오답: <b>{wrong_n}개</b>)
                     </span>
                 </div>
                 <div>
-                    <span style="font-size: 1.05rem; font-weight: bold; background: #fee2e2; color: #991b1b; padding: 6px 14px; border-radius: 20px; border: 1px solid #fca5a5;">
+                    <span style="font-size: 1.05rem; font-weight: bold; background: #FFF5F5; color: #DC2626; padding: 6px 14px; border-radius: 20px; border: 1px solid #FECACA;">
                         복원 대상: 총 {clinic_n}개 문항
                     </span>
                 </div>
@@ -923,34 +923,34 @@ def render_omr_stage():
             col_m1, col_m2, col_m3, col_m4 = st.columns(4)
             with col_m1:
                 st.markdown(f"""
-                <div style="background: #fef2f2; border: 1.5px solid #f87171; border-radius: 8px; padding: 10px 12px; text-align: center;">
-                    <b style="color: #991b1b; font-size: 1.02rem;">🚨 확신했으나 오답</b>
-                    <h3 style="margin: 4px 0; color: #dc2626;">{len(grading_res['confident_wrong'])}개</h3>
-                    <span style="font-size: 0.8rem; color: #7f1d1d;">평가원 킬러 함정에 완벽히 낚인 문항</span>
+                <div style="background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 10px; padding: 10px 12px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                    <b style="color: #991B1B; font-size: 1.02rem;">🚨 확신했으나 오답</b>
+                    <h3 style="margin: 4px 0; color: #DC2626;">{len(grading_res['confident_wrong'])}개</h3>
+                    <span style="font-size: 0.8rem; color: #7F1D1D;">평가원 킬러 함정에 완벽히 낚인 문항</span>
                 </div>
                 """, unsafe_allow_html=True)
             with col_m2:
                 st.markdown(f"""
-                <div style="background: #fff7ed; border: 1.5px solid #fb923c; border-radius: 8px; padding: 10px 12px; text-align: center;">
-                    <b style="color: #9a3412; font-size: 1.02rem;">❌ 헷갈림/찍음 오답</b>
-                    <h3 style="margin: 4px 0; color: #ea580c;">{len(grading_res['unsure_wrong'])}개</h3>
-                    <span style="font-size: 0.8rem; color: #7c2d12;">개념·조건 파악 및 독해 사고 공백</span>
+                <div style="background: #FFF7ED; border: 1px solid #FDBA74; border-radius: 10px; padding: 10px 12px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                    <b style="color: #9A3412; font-size: 1.02rem;">❌ 헷갈림/찍음 오답</b>
+                    <h3 style="margin: 4px 0; color: #EA580C;">{len(grading_res['unsure_wrong'])}개</h3>
+                    <span style="font-size: 0.8rem; color: #7C2D12;">개념·조건 파악 및 독해 사고 공백</span>
                 </div>
                 """, unsafe_allow_html=True)
             with col_m3:
                 st.markdown(f"""
-                <div style="background: #fefce8; border: 1.5px solid #facc15; border-radius: 8px; padding: 10px 12px; text-align: center;">
-                    <b style="color: #854d0e; font-size: 1.02rem;">⚠️ 헷갈렸으나 맞힘</b>
-                    <h3 style="margin: 4px 0; color: #ca8a04;">{len(grading_res['unsure_correct'])}개</h3>
-                    <span style="font-size: 0.8rem; color: #713f12;">실전 수능에서 틀릴 수 있는 불안 요소</span>
+                <div style="background: #FEFCE8; border: 1px solid #FDE047; border-radius: 10px; padding: 10px 12px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                    <b style="color: #854D0E; font-size: 1.02rem;">⚠️ 헷갈렸으나 맞힘</b>
+                    <h3 style="margin: 4px 0; color: #CA8A04;">{len(grading_res['unsure_correct'])}개</h3>
+                    <span style="font-size: 0.8rem; color: #713F12;">실전 수능에서 틀릴 수 있는 불안 요소</span>
                 </div>
                 """, unsafe_allow_html=True)
             with col_m4:
                 st.markdown(f"""
-                <div style="background: #faf5ff; border: 1.5px solid #c084fc; border-radius: 8px; padding: 10px 12px; text-align: center;">
-                    <b style="color: #6b21a8; font-size: 1.02rem;">🎲 찍어서 맞힘</b>
-                    <h3 style="margin: 4px 0; color: #9333ea;">{len(grading_res['lucky_correct'])}개</h3>
-                    <span style="font-size: 0.8rem; color: #581c87;">본 실력이 아니므로 근거 복원 필수</span>
+                <div style="background: #FAF5FF; border: 1px solid #D8B4FE; border-radius: 10px; padding: 10px 12px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                    <b style="color: #6B21A8; font-size: 1.02rem;">🎲 찍어서 맞힘</b>
+                    <h3 style="margin: 4px 0; color: #9333EA;">{len(grading_res['lucky_correct'])}개</h3>
+                    <span style="font-size: 0.8rem; color: #581C87;">본 실력이 아니므로 근거 복원 필수</span>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -1206,7 +1206,9 @@ def render_interview_stage(client):
     }
     /* 좌측 및 우측 스크롤 컨테이너 부드러운 스크롤 */
     div[data-testid="stVerticalBlockBorderWrapper"] {
-        border-radius: 10px;
+        border-radius: 14px;
+        box-shadow: 0 4px 12px -2px rgba(14, 14, 41, 0.05);
+        border: 1px solid #EBEBE7;
         transition: all 0.2s ease-in-out;
     }
     </style>
@@ -1467,9 +1469,9 @@ def render_report_stage(client):
         st.session_state.training_feedback = None
 
     st.markdown("""
-    <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 1.5rem; border-radius: 10px; margin-bottom: 1.5rem;">
-        <h2 style="color: #166534; margin: 0;">🎉 종합 사고 복원 완료 리포트 & AI 기출 맞춤 처방</h2>
-        <p style="color: #15803d; margin-top: 6px;">
+    <div style="background: linear-gradient(135deg, #F0F7F6 0%, #E6F3F2 100%); border: 1px solid #B8E1BE; padding: 1.5rem; border-radius: 14px; margin-bottom: 1.5rem; box-shadow: 0 4px 12px -2px rgba(14, 14, 41, 0.05);">
+        <h2 style="color: #0E0E29; margin: 0; font-size: 1.45rem; font-weight: 800; letter-spacing: -0.5px;">🎉 종합 사고 복원 완료 리포트 & AI 기출 맞춤 처방</h2>
+        <p style="color: #404035; margin-top: 8px; line-height: 1.55;">
             모든 취약 문항의 사고 경로 복원을 마쳤습니다. AI가 전체 모의고사 PDF에서 학생의 약점에 맞는 문항을 자동으로 찾아내었습니다.
         </p>
     </div>
@@ -1478,12 +1480,12 @@ def render_report_stage(client):
     # 상단 구글 드라이브 마스터 폴더 바로가기
     if master_drive_url and master_drive_url.startswith("http"):
         st.markdown(f"""
-        <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; padding: 12px 18px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="color: #1e40af; font-weight: 500;">
+        <div style="background-color: #F6F6F5; border: 1px solid #EBEBE7; border-left: 4px solid #046663; padding: 12px 18px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+            <span style="color: #0E0E29; font-weight: 600;">
                 📂 선생님의 구글 드라이브에 최근 수능 및 평가원 모의고사 원문 PDF 전체가 보관되어 있습니다.
             </span>
             <a href="{master_drive_url}" target="_blank" style="text-decoration: none;">
-                <button style="background-color: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                <button style="background-color: #046663; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
                     구글 드라이브 전체 기출 폴더 열기 ↗
                 </button>
             </a>
@@ -1555,7 +1557,7 @@ def render_report_stage(client):
                         if master_drive_url:
                             st.markdown(f"""
                             <a href="{master_drive_url}" target="_blank">
-                                <button style="background-color: #0284c7; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                                <button style="background-color: #046663; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
                                     📂 구글 드라이브에서 '{prob['exam_title']}' 원문 파일 열기 ↗
                                 </button>
                             </a>
@@ -1568,16 +1570,16 @@ def render_report_stage(client):
             # 우측: 방어 미션 수행 및 AI 피드백
             with col_train_act:
                 st.markdown(f"""
-                <div style="background-color: #fef2f2; border: 1px solid #fecaca; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px;">
-                    <b style="color: #991b1b;">😈 평가원의 함정 설계:</b><br>
-                    <span style="color: #7f1d1d; font-size: 0.95rem;">{prob['trap_concept']}</span>
+                <div style="background-color: #FEF2F2; border: 1px solid #FECACA; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px;">
+                    <b style="color: #991B1B;">😈 평가원의 함정 설계:</b><br>
+                    <span style="color: #7F1D1D; font-size: 0.95rem;">{prob['trap_concept']}</span>
                 </div>
                 """, unsafe_allow_html=True)
 
                 st.markdown(f"""
-                <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
-                    <b style="color: #166534;">💡 방어 훈련 미션:</b><br>
-                    <span style="color: #14532d; font-size: 0.95rem;">👉 <b>{prob['mission']}</b></span>
+                <div style="background-color: #F0F7F6; border: 1px solid #B8E1BE; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <b style="color: #046663;">💡 방어 훈련 미션:</b><br>
+                    <span style="color: #046663; font-size: 0.95rem;">👉 <b>{prob['mission']}</b></span>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -1610,9 +1612,9 @@ def render_report_stage(client):
                 if st.session_state.training_feedback:
                     st.divider()
                     st.markdown(f"""
-                    <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #3b82f6; padding: 14px; border-radius: 6px;">
-                        <b style="color: #1e3a8a;">👨‍🏫 AI 1:1 방어 코칭:</b><br>
-                        <div style="margin-top: 6px; color: #334155; line-height: 1.6;">
+                    <div style="background-color: #F6F6F5; border: 1px solid #EBEBE7; border-left: 4px solid #046663; padding: 14px 16px; border-radius: 10px; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.05);">
+                        <b style="color: #0E0E29; font-size: 1.02rem;">👨‍🏫 AI 1:1 방어 코칭:</b><br>
+                        <div style="margin-top: 8px; color: #404035; line-height: 1.6;">
                             {st.session_state.training_feedback}
                         </div>
                     </div>

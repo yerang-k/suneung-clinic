@@ -35,6 +35,30 @@ st.set_page_config(
 # ⭐️ 전역 스타일: 상단 GitHub 아이콘, Edit(연필) 아이콘, 햄버거 메뉴, 툴바 완전 제거 & 깔끔한 여백
 st.markdown("""
 <style>
+/* ===================================================
+   Lattice Design System (Modern & Clean B2B SaaS)
+   =================================================== */
+
+/* 0. 타이포그래피 및 기본 폰트 설정 */
+html, body, [class*="css"] {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    color: #404035;
+    background-color: #FFFFFF;
+}
+
+/* 제목 (Ebony: #0E0E29, Bold, Tight) */
+h1, h2, h3, h4, h5, h6 {
+    color: #0E0E29 !important;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.025em !important;
+}
+
+/* 본문 줄간격 및 가독성 */
+p, span, label, div {
+    line-height: 1.55;
+}
+
 /* 1. 우측 상단 불필요한 툴바(Share, 별, 연필, 깃허브, 햄버거 메뉴)만 정확히 제거 */
 [data-testid="stToolbarActions"],
 [data-testid="stHeaderActionElements"],
@@ -63,7 +87,7 @@ div[class*="stAppToolbar"] {
     visibility: visible !important;
 }
 
-/* 3. ⭐️ 좌측 사이드바 펼치기 토글 버튼(>>) 완벽 복원 및 선명하게 표시 */
+/* 3. 좌측 사이드바 펼치기 토글 버튼(>>) - Lattice Teal 스타일 */
 [data-testid="stSidebarCollapsedControl"],
 [data-testid="collapsedControl"],
 header [data-testid="stSidebarCollapsedControl"],
@@ -78,7 +102,6 @@ header [data-testid="collapsedControl"] {
     z-index: 100000 !important;
 }
 
-/* 사이드바 토글 버튼 내부 스타일: 깔끔한 흰색 배경에 파란색 아이콘과 그림자 */
 [data-testid="stSidebarCollapsedControl"] button,
 [data-testid="collapsedControl"] button,
 div[data-testid="stSidebarCollapsedControl"] button,
@@ -88,30 +111,116 @@ div[data-testid="collapsedControl"] button {
     opacity: 1 !important;
     pointer-events: auto !important;
     cursor: pointer !important;
-    background-color: #ffffff !important;
-    border: 2px solid #2563eb !important;
+    background-color: #FFFFFF !important;
+    border: 1.5px solid #046663 !important;
     border-radius: 8px !important;
-    color: #1d4ed8 !important;
+    color: #046663 !important;
     padding: 4px 10px !important;
-    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3) !important;
+    box-shadow: 0 2px 6px rgba(4, 102, 99, 0.15) !important;
+    transition: all 0.15s ease-in-out !important;
 }
 
 [data-testid="stSidebarCollapsedControl"] button:hover,
 [data-testid="collapsedControl"] button:hover {
-    background-color: #eff6ff !important;
-    border-color: #1d4ed8 !important;
-    transform: scale(1.05);
+    background-color: #F0F7F6 !important;
+    border-color: #16B8A2 !important;
+    color: #16B8A2 !important;
+    transform: scale(1.03);
 }
 
-/* 사이드바 내부 닫기 버튼도 정상 작동 보장 */
 [data-testid="stSidebarCollapseButton"] {
     display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
+    color: #046663 !important;
 }
 
-/* 메인 컨테이너 상단 여백 최적화 (헤더와 겹치지 않도록 3.5rem 확보) */
+/* 4. 사이드바(Surface Gray 배경 & 웜그레이 테두리) */
+section[data-testid="stSidebar"] {
+    background-color: #F6F6F5 !important;
+    border-right: 1px solid #EBEBE7 !important;
+}
+
+/* 5. 카드 및 패널 컴포넌트 (Soft Shadow, 14px 곡선, 매우 연한 테두리) */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    background-color: #FFFFFF !important;
+    border: 1px solid #EBEBE7 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 4px 12px -2px rgba(14, 14, 41, 0.05) !important;
+    transition: box-shadow 0.2s ease-in-out !important;
+}
+
+/* 6. 버튼 스타일링 */
+/* Primary Button: Deep Mosque (#046663), White Text, 8px Radius */
+button[kind="primary"] {
+    background-color: #046663 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    padding: 0.5rem 1rem !important;
+    box-shadow: 0 2px 5px rgba(4, 102, 99, 0.2) !important;
+    transition: all 0.15s ease-in-out !important;
+}
+button[kind="primary"]:hover {
+    background-color: #035350 !important;
+    box-shadow: 0 4px 10px rgba(4, 102, 99, 0.3) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Secondary Button: White Background, Ebony Text, Warm Gray Border */
+button[kind="secondary"], button:not([kind="primary"]) {
+    background-color: #FFFFFF !important;
+    color: #0E0E29 !important;
+    border: 1px solid #D1D1C8 !important;
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+    transition: all 0.15s ease-in-out !important;
+}
+button[kind="secondary"]:hover, button:not([kind="primary"]):hover {
+    background-color: #F6F6F5 !important;
+    border-color: #16B8A2 !important;
+    color: #046663 !important;
+}
+
+/* 7. 입력창 및 셀렉트박스 (Focus 시 Mountain Meadow #16B8A2 아웃라인) */
+input[type="text"], input[type="password"], textarea, select, .stSelectbox [data-baseweb="select"] {
+    border: 1px solid #D1D1C8 !important;
+    border-radius: 8px !important;
+    color: #0E0E29 !important;
+    background-color: #FFFFFF !important;
+}
+input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
+    border-color: #16B8A2 !important;
+    box-shadow: 0 0 0 2px rgba(22, 184, 162, 0.2) !important;
+    outline: none !important;
+}
+
+/* 8. 탭 (Tabs) - Lattice 청록색 언더라인 */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 12px !important;
+    border-bottom: 1.5px solid #EBEBE7 !important;
+}
+.stTabs [data-baseweb="tab"] {
+    color: #59594A !important;
+    font-weight: 500 !important;
+    border-radius: 6px 6px 0 0 !important;
+    padding: 8px 16px !important;
+}
+.stTabs [aria-selected="true"] {
+    color: #046663 !important;
+    font-weight: 700 !important;
+    border-bottom: 2.5px solid #046663 !important;
+}
+
+/* 9. 알림 배너 (Info, Success 등 부드러운 라운딩 및 테두리) */
+div[data-testid="stAlert"] {
+    border-radius: 10px !important;
+    border: 1px solid #EBEBE7 !important;
+}
+
+/* 메인 컨테이너 상단 여백 최적화 */
 .block-container {
     padding-top: 3.5rem !important;
     padding-bottom: 2.5rem !important;
