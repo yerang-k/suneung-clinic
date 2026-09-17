@@ -106,8 +106,52 @@ def safe_parse_json(text: str):
             return json.loads(match.group(0))
         raise ValueError("JSON 응답을 해석할 수 없습니다.")
 
-# ==========================================
-# --- 학생 학습 상태 영구 보존 및 단계 네비게이션 엔진 ---
+def render_kakaotalk_chat(chat_history):
+    """
+    카카오톡 스타일 대화 뷰어:
+    - AI(어시스턴트): 왼쪽 정렬, 🎯 아바타, 화이트 말풍선
+    - 학생(나): 오른쪽 정렬, 카카오톡 노란색(#fee500) 말풍선
+    """
+    if not chat_history:
+        return
+    
+    html_items = [
+        '<div style="display: flex; flex-direction: column; gap: 14px; padding: 10px 4px;">'
+    ]
+    
+    for msg in chat_history:
+        role = msg.get("role")
+        raw_text = str(msg.get("content", ""))
+        # HTML 특수문자 및 줄바꿈 처리
+        safe_text = raw_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+        # 볼드 마크다운 (**text**) 치환
+        safe_text = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", safe_text)
+        
+        if role == "assistant":
+            html_items.append(f"""
+            <div style="display: flex; align-items: flex-start; gap: 8px; justify-content: flex-start; margin-right: 15%;">
+                <div style="width: 34px; height: 34px; border-radius: 50%; background: #e0f2fe; border: 1px solid #bae6fd; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.06);">
+                    🎯
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 3px; max-width: 88%;">
+                    <span style="font-size: 0.78rem; color: #64748b; font-weight: 600; margin-left: 2px;">AI 사고 복원 코치</span>
+                    <div style="background: #ffffff; color: #0f172a; padding: 10px 14px; border-radius: 4px 14px 14px 14px; border: 1px solid #e2e8f0; font-size: 0.95rem; line-height: 1.55; box-shadow: 0 1px 3px rgba(0,0,0,0.04); word-break: break-word;">
+                        {safe_text}
+                    </div>
+                </div>
+            </div>
+            """)
+        else:
+            html_items.append(f"""
+            <div style="display: flex; align-items: flex-end; justify-content: flex-end; margin-left: 15%;">
+                <div style="background: #fee500; color: #191600; padding: 10px 14px; border-radius: 14px 4px 14px 14px; font-size: 0.95rem; font-weight: 500; line-height: 1.55; box-shadow: 0 1px 3px rgba(0,0,0,0.07); word-break: break-word; border: 1px solid #fde047; max-width: 88%;">
+                    {safe_text}
+                </div>
+            </div>
+            """)
+            
+    html_items.append("</div>")
+    st.markdown("".join(html_items), unsafe_allow_html=True)
 # ==========================================
 def save_current_student_progress():
     """현재 세션의 모든 학습 상태를 디스크 및 구글 시트에 영구 보존"""
@@ -672,7 +716,7 @@ def render_omr_stage():
             st.session_state.interview_step = "CHAT"
             st.session_state.chat_history = [{
                 "role": "assistant",
-                "content": f"안녕, {student['name']}! {cur_exam['title']} **{first_q['q_num']}번** 문항을 [{first_q['status']}] 상태로 표시하고 **{first_q['my_pick']}번** 선지를 골랐네.\n\n정답을 맞히는 건 나중 문제니까, 시험장에서 이 문제를 풀 때 **왜 {first_q['my_pick']}번에 끌렸는지, 지문이나 선지의 어떤 표현 때문에 고민했는지** 당시 생각부터 편하게 말해줄래?"
+                "content": f"**{first_q['q_num']}번** 문항을 [{first_q['status']}] 상태로 **{first_q['my_pick']}번**을 골랐네. 시험장에서 지문의 어떤 표현이나 선지 어휘 때문에 {first_q['my_pick']}번이 맞다고 판단했는지 핵심만 단도직입적으로 말해줘."
             }]
             st.session_state.draft_summary = ""
             st.session_state.current_analysis = None
@@ -708,11 +752,11 @@ def get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick
     - 학생이 고른 선지: {my_pick}번
     {q_context}
     {past_context}
-    [인터뷰어 핵심 행동 지침]
-    1. 절대 선지의 옳고 그름(정오)을 먼저 알려주거나 직접 해설 강의를 하지 마십시오.
-    2. 학생이 답변한 내용을 바탕으로, '지문의 어떤 문장을 어떻게 오독했는지', '선지의 특정 어휘를 임의로 왜곡했는지', '기억이 안 나서 지레짐작했는지'를 날카롭게 파고드는 질문을 '딱 1개'만 던지십시오.
-    3. 학생의 과거 취약점 이력이 존재한다면, 그 습관이 이번에도 재현되었는지 성찰을 유도하십시오.
-    4. 친절하지만 수능적 엄밀함을 유지하는 어조를 사용하십시오.
+    [인터뷰어 핵심 행동 지침 - ⚡ 스피디 & 단도직입 수능 코칭 원칙]
+    1. [시간 절약 최우선]: 수험생은 마음이 급합니다. 장황한 인사말, 격려, 칭찬, 불필요한 미사여구는 '일절 생략'하고 곧바로 본론 질문으로 들어가십시오.
+    2. [정오 판별 누설 금지]: 선지가 맞았는지 틀렸는지 먼저 가르쳐주거나 강의식 해설을 하지 마십시오.
+    3. [급소를 찌르는 1문장 질문]: 학생의 답변을 바탕으로, '지문의 어떤 문장을 왜곡했는지' 또는 '선지의 어휘를 어떻게 오독했는지' 허점을 찌르는 질문을 '딱 1~2문장 (공백 포함 150자 이내)'으로 신속하게 던지십시오.
+    4. [단호하고 스피디한 톤]: 느긋하거나 여유로운 태도는 금물입니다. 실전 수능 코치처럼 직관적이고 스피디하게 사고의 허점을 파고드십시오.
     """
 
 # ==========================================
@@ -770,7 +814,7 @@ def render_interview_stage(client):
                         st.session_state.current_analysis = None
                         st.session_state.chat_history = [{
                             "role": "assistant",
-                            "content": f"좋아! **{target_q['q_num']}번** 문항이야. [{target_q['status']}] 상태로 **{target_q['my_pick']}번**을 골랐네. 이 문항에서는 어떤 점이 헷갈렸는지 당시 생각을 편하게 말해줘!"
+                            "content": f"**{target_q['q_num']}번** 문항이야. [{target_q['status']}] 상태로 **{target_q['my_pick']}번**을 고른 당시 생각의 근거를 단도직입적으로 말해줘."
                         }]
                     save_current_student_progress()
                     st.rerun()
@@ -828,12 +872,10 @@ def render_interview_stage(client):
             st.markdown("### 💬 AI 사고 복원 인터뷰")
             st.caption("💡 화면에 고정된 대화창입니다. 질문에 맞춰 당시 생각을 편하게 적어주세요.")
 
-            # 1. 고정 높이 스크롤 메시지 박스 (좌측과 정확히 균형을 맞춤)
+            # 1. 고정 높이 스크롤 메시지 박스 (카카오톡 스타일: AI 좌측, 학생 우측 정렬)
             chat_box = st.container(height=VIEWER_HEIGHT - 100)
             with chat_box:
-                for msg in st.session_state.chat_history:
-                    with st.chat_message(msg["role"]):
-                        st.write(msg["content"])
+                render_kakaotalk_chat(st.session_state.chat_history)
 
             # 2. 🚨 에러가 발생한 경우 고정 표시 (채팅창 바로 아래)
             if st.session_state.get("last_chat_error"):
@@ -848,18 +890,20 @@ def render_interview_stage(client):
                             system_prompt = get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick)
                             gemini_contents = build_gemini_contents(st.session_state.chat_history)
                             with chat_box:
-                                with st.spinner("다시 생각의 경로를 분석 중입니다..."):
+                                with st.spinner("생각의 경로를 분석 중입니다..."):
                                     try:
                                         response = call_gemini_safe(
                                             client,
                                             contents=gemini_contents,
                                             config=types.GenerateContentConfig(
                                                 system_instruction=system_prompt,
-                                                temperature=0.3
+                                                temperature=0.2,
+                                                max_output_tokens=250
                                             )
                                         )
                                         st.session_state.chat_history.append({"role": "assistant", "content": response.text})
                                         st.session_state["last_chat_error"] = None
+                                        save_current_student_progress()
                                         st.rerun()
                                     except Exception as e:
                                         st.session_state["last_chat_error"] = str(e)
@@ -869,8 +913,8 @@ def render_interview_stage(client):
                         st.session_state["last_chat_error"] = None
                         st.rerun()
 
-            # 3. 대화 3회 이상 시 요약안 작성 버튼 (고정 위치)
-            if len(st.session_state.chat_history) >= 3:
+            # 3. 학생 답변 1회 이상(전체 2개 이상) 시 요약안 작성 버튼 활성화 (빠른 진행 지원)
+            if len(st.session_state.chat_history) >= 2:
                 if st.button("📝 대화 종료 및 내 사고 요약안 작성하기", use_container_width=True, type="primary"):
                     with chat_box:
                         with st.spinner("당시 사고 경로를 1인칭으로 요약 중입니다..."):
@@ -888,6 +932,7 @@ def render_interview_stage(client):
                                 st.session_state.draft_summary = summary_res.text
                                 st.session_state.interview_step = "REVIEW"
                                 st.session_state["last_chat_error"] = None
+                                save_current_student_progress()
                                 st.rerun()
                             except Exception as e:
                                 st.session_state["last_chat_error"] = f"사고 요약 작성 실패: {e}"
@@ -898,8 +943,6 @@ def render_interview_stage(client):
                 st.session_state["last_chat_error"] = None
                 st.session_state.chat_history.append({"role": "user", "content": user_input})
                 with chat_box:
-                    with st.chat_message("user"):
-                        st.write(user_input)
                     with st.spinner("생각의 경로를 분석 중입니다..."):
                         system_prompt = get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick)
                         gemini_contents = build_gemini_contents(st.session_state.chat_history)
@@ -909,11 +952,13 @@ def render_interview_stage(client):
                                 contents=gemini_contents,
                                 config=types.GenerateContentConfig(
                                     system_instruction=system_prompt,
-                                    temperature=0.3
+                                    temperature=0.2,
+                                    max_output_tokens=250
                                 )
                             )
                             st.session_state.chat_history.append({"role": "assistant", "content": response.text})
                             st.session_state["last_chat_error"] = None
+                            save_current_student_progress()
                             st.rerun()
                         except Exception as e:
                             st.session_state["last_chat_error"] = str(e)
@@ -1000,7 +1045,7 @@ def render_interview_stage(client):
                         st.session_state.current_analysis = None
                         st.session_state.chat_history = [{
                             "role": "assistant",
-                            "content": f"좋아! 다음은 **{next_q['q_num']}번** 문항이야. [{next_q['status']}] 상태로 **{next_q['my_pick']}번**을 골랐네. 이 문항에서는 어떤 점이 헷갈렸는지 편하게 말해줘!"
+                            "content": f"다음은 **{next_q['q_num']}번** 문항이야. [{next_q['status']}] 상태로 **{next_q['my_pick']}번**을 고른 당시 생각의 근거를 단도직입적으로 말해줘."
                         }]
                         save_current_student_progress()
                         st.rerun()

@@ -109,30 +109,31 @@ def render_pdf_viewer(base64_pdf: str = None, pdf_url: str = None, pdf_path: str
             cur_page = st.session_state[page_state_key]
 
             # 상단 네비게이션 바
-            col_n1, col_n2, col_n3, col_n4 = st.columns([1.2, 2, 1.2, 1.2])
+            col_n1, col_n2, col_n3, col_n4 = st.columns([1.1, 1.8, 1.1, 1.1])
             with col_n1:
-                if st.button("◀ 이전 페이지", key=f"btn_prev_{page_state_key}", disabled=(cur_page <= 1), use_container_width=True):
+                if st.button("◀ 이전", key=f"btn_prev_{page_state_key}", disabled=(cur_page <= 1), use_container_width=True):
                     st.session_state[page_state_key] = max(1, cur_page - 1)
                     st.rerun()
             with col_n2:
+                # ⭐️ selectbox의 key에 cur_page를 포함하여 이전/다음 버튼 클릭 시 위젯 캐시 충돌을 원천 방지
                 sel_p = st.selectbox(
                     "페이지",
                     options=list(range(1, total_pages + 1)),
                     index=cur_page - 1,
                     format_func=lambda x: f"📄 {x} / {total_pages} 페이지",
                     label_visibility="collapsed",
-                    key=f"sel_{page_state_key}"
+                    key=f"sel_p_{page_state_key}_{cur_page}"
                 )
                 if sel_p != cur_page:
                     st.session_state[page_state_key] = sel_p
                     st.rerun()
             with col_n3:
-                if st.button("다음 페이지 ▶", key=f"btn_next_{page_state_key}", disabled=(cur_page >= total_pages), use_container_width=True):
+                if st.button("다음 ▶", key=f"btn_next_{page_state_key}", disabled=(cur_page >= total_pages), use_container_width=True):
                     st.session_state[page_state_key] = min(total_pages, cur_page + 1)
                     st.rerun()
             with col_n4:
                 if pdf_url and pdf_url.startswith("http"):
-                    st.link_button("↗ 원문 링크", pdf_url, use_container_width=True)
+                    st.link_button("↗ 원문", pdf_url, use_container_width=True)
 
             # 캐시된 초고속 페이지 이미지 출력 (독립 고정 스크롤 박스 적용)
             img_bytes = render_pdf_page_cached(pdf_bytes, cur_page - 1, scale=2.0)
