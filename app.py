@@ -2,7 +2,10 @@ import os
 import streamlit as st
 from google import genai
 
-from data_manager import init_data_dirs, verify_admin_password
+from data_manager import (
+    init_data_dirs, verify_admin_password,
+    get_effective_api_key, save_student_api_key, clear_student_api_key
+)
 from admin_view import render_admin_dashboard
 from student_view import (
     render_student_login,
@@ -15,7 +18,7 @@ from student_view import (
 # 1. 앱 기본 설정
 # ==========================================
 st.set_page_config(
-    page_title="승하샘과 함께하는 수능 국어 사고 복원 클리닉",
+    page_title="수능 국어 사고 복원 클리닉",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -41,24 +44,51 @@ with st.sidebar:
     st.title("🧠 수능 한 문제 더")
     st.caption("메타인지 기반 사고 복원 & 평가원 함정 클리닉")
 
-    # API Key 설정 (환경변수 fallback 지원)
+    # API Key 설정 및 영구 저장
     st.divider()
-    default_key = os.environ.get("GEMINI_API_KEY", "")
+    saved_key, key_source = get_effective_api_key()
+
+    st.markdown("#### 🔑 Gemini API 설정")
     user_api_key = st.text_input(
-        "🔑 Gemini API Key",
-        value=default_key,
+        "Gemini API Key",
+        value=saved_key,
         type="password",
-        help="Google AI Studio에서 발급받은 API 키를 입력하세요."
+        placeholder="AI Studio 키를 입력하세요",
+        help="Google AI Studio에서 발급받은 Gemini API 키입니다."
     )
 
+    col_k1, col_k2 = st.columns([1.3, 1])
+    with col_k1:
+        if st.button("💾 이 기기에 저장", use_container_width=True, type="primary"):
+            if user_api_key.strip():
+                save_student_api_key(user_api_key.strip())
+                st.success("API 키가 저장되었습니다! 앞으로 새로고침해도 유지됩니다.")
+                st.rerun()
+            else:
+                st.warning("API 키를 먼저 입력해 주세요.")
+    with col_k2:
+        if st.button("🗑️ 키 삭제", use_container_width=True):
+            clear_student_api_key()
+            st.info("저장된 API 키가 삭제되었습니다.")
+            st.rerun()
+
+    active_key = user_api_key.strip() or saved_key
     client = None
-    if user_api_key:
+    if active_key:
         try:
-            client = genai.Client(api_key=user_api_key)
+            client = genai.Client(api_key=active_key)
+            if key_source == "USER":
+                st.caption("🟢 이 기기에 저장된 API 키로 동작 중")
+            elif key_source == "ADMIN":
+                st.caption("🏫 선생님 등록 공용 API 키로 동작 중")
+            elif key_source == "ENV":
+                st.caption("🌐 시스템 환경변수 API 키로 동작 중")
+            else:
+                st.caption("🟡 임시 입력 상태입니다. [이 기기에 저장]을 누르면 유지됩니다.")
         except Exception as e:
             st.error(f"API 클라이언트 오류: {e}")
     else:
-        st.info("💡 실시간 AI 인터뷰를 위해 Gemini API 키를 입력해 주세요. (없을 경우 인터뷰 생성이 제한됩니다)")
+        st.info("💡 실시간 AI 인터뷰를 위해 API 키를 입력 후 [이 기기에 저장]을 눌러주세요.")
 
     st.divider()
     # 모드 전환

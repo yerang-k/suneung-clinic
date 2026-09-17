@@ -8,5 +8,7 @@
     "관계어·논리 왜곡": "https://drive.google.com/drive/folders/sample-tag5-logic",
     "과잉 인과 생성": "https://drive.google.com/drive/folders/sample-tag6-causality"
   },
-  "gas_api_url": ""
+  "gas_api_url": "",
+  "gemini_api_key": "",
+  "google_drive_folder_url": "https://drive.google.com/drive/folders/sample-kice-past-exams-archive"
 }

@@ -5,6 +5,7 @@ from datetime import datetime
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 STUDENTS_FILE = os.path.join(DATA_DIR, "students.json")
+USER_CONFIG_FILE = os.path.join(DATA_DIR, "user_config.json")
 CONFIG_FILE = os.path.join(DATA_DIR, "admin_config.json")
 EXAMS_DIR = os.path.join(DATA_DIR, "exams")
 EXAMS_META_FILE = os.path.join(EXAMS_DIR, "exams_meta.json")
@@ -12,6 +13,7 @@ SUBMISSIONS_FILE = os.path.join(DATA_DIR, "submissions.json")
 
 DEFAULT_CONFIG = {
     "admin_password": "teacher1234",
+    "gemini_api_key": "",
     "google_drive_folder_url": "https://drive.google.com/drive/folders/sample-kice-past-exams-archive",
     "gas_api_url": ""
 }
@@ -64,9 +66,24 @@ def init_data_dirs():
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(EXAMS_DIR, exist_ok=True)
     
+    # admin_config.json 초기화 및 누락 키 보정
     if not os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(DEFAULT_CONFIG, f, ensure_ascii=False, indent=2)
+    else:
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+            updated = False
+            for k, v in DEFAULT_CONFIG.items():
+                if k not in loaded:
+                    loaded[k] = v
+                    updated = True
+            if updated:
+                with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                    json.dump(loaded, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
             
     if not os.path.exists(STUDENTS_FILE):
         with open(STUDENTS_FILE, "w", encoding="utf-8") as f:
@@ -85,9 +102,14 @@ def get_admin_config():
     init_data_dirs()
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            # 기본 키 보장
+            for k, v in DEFAULT_CONFIG.items():
+                if k not in data:
+                    data[k] = v
+            return data
     except Exception:
-        return DEFAULT_CONFIG
+        return DEFAULT_CONFIG.copy()
 
 def save_admin_config(config):
     init_data_dirs()
@@ -97,6 +119,56 @@ def save_admin_config(config):
 def verify_admin_password(password: str) -> bool:
     cfg = get_admin_config()
     return cfg.get("admin_password") == password
+
+# --- 학생/로컬 사용자 설정 (User Config) ---
+def get_user_config() -> dict:
+    init_data_dirs()
+    if os.path.exists(USER_CONFIG_FILE):
+        try:
+            with open(USER_CONFIG_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def save_user_config(config: dict):
+    init_data_dirs()
+    with open(USER_CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
+
+def get_effective_api_key():
+    """
+    저장된 API 키를 우선순위에 따라 반환:
+    1. 학생/로컬 기기 저장 키 (user_config.json)
+    2. 관리자가 등록한 공용 키 (admin_config.json)
+    3. 환경 변수 (GEMINI_API_KEY)
+    """
+    u_cfg = get_user_config()
+    user_key = u_cfg.get("gemini_api_key", "").strip()
+    if user_key:
+        return user_key, "USER"
+    
+    a_cfg = get_admin_config()
+    admin_key = a_cfg.get("gemini_api_key", "").strip()
+    if admin_key:
+        return admin_key, "ADMIN"
+        
+    env_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if env_key:
+        return env_key, "ENV"
+        
+    return "", "NONE"
+
+def save_student_api_key(api_key: str):
+    u_cfg = get_user_config()
+    u_cfg["gemini_api_key"] = api_key.strip()
+    save_user_config(u_cfg)
+
+def clear_student_api_key():
+    u_cfg = get_user_config()
+    if "gemini_api_key" in u_cfg:
+        del u_cfg["gemini_api_key"]
+        save_user_config(u_cfg)
 
 # --- 학생 관리 (Students) ---
 def get_students():

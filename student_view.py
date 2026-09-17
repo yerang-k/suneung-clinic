@@ -99,7 +99,7 @@ def safe_parse_json(text: str):
 def render_student_login():
     st.markdown("""
     <div style="text-align: center; margin-top: 2rem; margin-bottom: 2rem;">
-        <h1 style="color: #0f172a;">🧠 승하샘과 함께하는 수능 국어 사고 복원 클리닉</h1>
+        <h1 style="color: #0f172a;">🧠 수능 국어 사고 복원 클리닉</h1>
         <p style="color: #64748b; font-size: 1.1rem;">
             오답을 단순히 외우지 않고, <b>시험장 당시 나의 왜곡된 사고 경로</b>를 복원하여 평가원의 함정을 깨뜨립니다.
         </p>
@@ -126,6 +126,8 @@ def render_student_login():
                         st.session_state.vulnerable_queue = []
                         st.session_state.queue_index = 0
                         st.session_state.diagnosed_items = []
+                        if "omr_df" in st.session_state:
+                            del st.session_state["omr_df"]
                         st.rerun()
                     else:
                         st.error(res)
@@ -172,89 +174,180 @@ def render_omr_stage():
 
     st.divider()
     st.subheader(f"📋 {cur_exam['title']} - 전체 문항 풀이 상태 기록")
-    st.caption("기본값은 '확신'입니다. 찜찜했거나 틀렸거나 찍었던 문제의 상태만 변경해 주시면 됩니다.")
+    st.caption("기본값은 '확신'입니다. 틀렸거나 헷갈렸거나 찍었던 문제만 상태를 변경해 주시면 됩니다.")
 
-    # OMR 데이터프레임 초기화
-    if "omr_data" not in st.session_state or len(st.session_state.omr_data) != total_q:
-        init_rows = []
-        for i in range(1, total_q + 1):
-            # 기본 샘플로 14번, 27번은 오답/확신없음 예시로 세팅
-            if i == 27:
-                stt = "🔴 오답"
-                pick = 1
-            elif i == 14:
-                stt = "🟡 확신 없는 정답"
-                pick = 1
-            else:
-                stt = "🟢 확신 (건너뜀)"
-                pick = 3
-            init_rows.append({"문항": i, "풀이 상태": stt, "내가 고른 선지": pick})
-        st.session_state.omr_data = pd.DataFrame(init_rows)
+    # 시험지가 변경되었거나 OMR 데이터가 없는 경우 안전하게 초기화
+    if "current_exam_id" not in st.session_state or st.session_state.current_exam_id != selected_exam_id or "omr_df" not in st.session_state:
+        st.session_state.current_exam_id = selected_exam_id
+        init_rows = [
+            {
+                "문항": i,
+                "🔴 오답": False,
+                "🟡 확신 없음": False,
+                "⏱️ 찍음": False,
+                "고른 선지": 1
+            }
+            for i in range(1, total_q + 1)
+        ]
+        st.session_state.omr_df = pd.DataFrame(init_rows)
+        st.session_state.omr_editor_nonce = st.session_state.get("omr_editor_nonce", 0) + 1
 
-    status_choices = ["🟢 확신 (건너뜀)", "🟡 확신 없는 정답", "🔴 오답", "⏱️ 시간부족/찍음"]
-    
-    # 간편 입력 옵션
-    with st.expander("⚡ 번호 직접 입력으로 빠르게 지정하기 (선택사항)"):
-        st.caption("문항 번호를 입력하여 상태를 일괄 변경할 수 있습니다. (예: 14, 21, 27)")
-        quick_qs = st.text_input("문항 번호들 (쉼표로 구분)", placeholder="14, 27")
-        quick_status = st.selectbox("설정할 상태", status_choices[1:], index=1)
-        if st.button("해당 문항들 상태 일괄 적용"):
-            try:
-                targets = [int(x.strip()) for x in quick_qs.split(",") if x.strip().isdigit()]
-                for t in targets:
-                    if 1 <= t <= total_q:
-                        st.session_state.omr_data.loc[st.session_state.omr_data["문항"] == t, "풀이 상태"] = quick_status
-                st.success(f"{targets}번 문항이 '{quick_status}'(으)로 일괄 적용되었습니다.")
+    # 1. 빠른 번호 일괄 지정 폼 (체크박스 자동 토글)
+    with st.expander("⚡ 번호 직접 입력으로 빠르게 체크하기 (선택사항)", expanded=False):
+        st.caption("문항 번호를 적고 [일괄 적용]을 누르면 아래 체크박스가 자동으로 켜집니다.")
+        with st.form("quick_omr_form"):
+            col_q1, col_q2, col_q3 = st.columns(3)
+            with col_q1:
+                wrong_input = st.text_input("🔴 오답 번호들", placeholder="예: 14, 27, 34")
+            with col_q2:
+                unsure_input = st.text_input("🟡 확신 없는 정답 번호들", placeholder="예: 8, 21")
+            with col_q3:
+                time_input = st.text_input("⏱️ 찍음 / 시간부족 번호들", placeholder="예: 44, 45")
+
+            col_btn1, col_btn2 = st.columns([2, 1])
+            with col_btn1:
+                submit_quick = st.form_submit_button("⚡ 위 문항들 체크박스 자동 적용", type="primary", use_container_width=True)
+            with col_btn2:
+                reset_all = st.form_submit_button("🔄 전체 체크박스 해제 (초기화)", use_container_width=True)
+
+            if submit_quick:
+                def parse_q_numbers(text: str):
+                    if not text:
+                        return []
+                    parts = re.split(r"[,/\\s]+", text.strip())
+                    return [int(p) for p in parts if p.isdigit()]
+
+                w_list = parse_q_numbers(wrong_input)
+                u_list = parse_q_numbers(unsure_input)
+                t_list = parse_q_numbers(time_input)
+
+                applied_count = 0
+                for q in w_list:
+                    if 1 <= q <= total_q:
+                        st.session_state.omr_df.loc[st.session_state.omr_df["문항"] == q, "🔴 오답"] = True
+                        st.session_state.omr_df.loc[st.session_state.omr_df["문항"] == q, "🟡 확신 없음"] = False
+                        st.session_state.omr_df.loc[st.session_state.omr_df["문항"] == q, "⏱️ 찍음"] = False
+                        applied_count += 1
+                for q in u_list:
+                    if 1 <= q <= total_q:
+                        st.session_state.omr_df.loc[st.session_state.omr_df["문항"] == q, "🔴 오답"] = False
+                        st.session_state.omr_df.loc[st.session_state.omr_df["문항"] == q, "🟡 확신 없음"] = True
+                        st.session_state.omr_df.loc[st.session_state.omr_df["문항"] == q, "⏱️ 찍음"] = False
+                        applied_count += 1
+                for q in t_list:
+                    if 1 <= q <= total_q:
+                        st.session_state.omr_df.loc[st.session_state.omr_df["문항"] == q, "🔴 오답"] = False
+                        st.session_state.omr_df.loc[st.session_state.omr_df["문항"] == q, "🟡 확신 없음"] = False
+                        st.session_state.omr_df.loc[st.session_state.omr_df["문항"] == q, "⏱️ 찍음"] = True
+                        applied_count += 1
+
+                st.session_state.omr_editor_nonce = st.session_state.get("omr_editor_nonce", 0) + 1
+                st.success(f"총 {applied_count}개 문항의 체크박스가 자동 설정되었습니다.")
                 st.rerun()
-            except Exception as e:
-                st.error(f"입력 형식 오류: {e}")
 
-    # 데이터 에디터로 수정 가능
-    edited_omr = st.data_editor(
-        st.session_state.omr_data,
+            if reset_all:
+                init_rows = [
+                    {
+                        "문항": i,
+                        "🔴 오답": False,
+                        "🟡 확신 없음": False,
+                        "⏱️ 찍음": False,
+                        "고른 선지": 1
+                    }
+                    for i in range(1, total_q + 1)
+                ]
+                st.session_state.omr_df = pd.DataFrame(init_rows)
+                st.session_state.omr_editor_nonce = st.session_state.get("omr_editor_nonce", 0) + 1
+                st.info("전체 문항의 체크가 해제되었습니다. (모두 확신 상태)")
+                st.rerun()
+
+    # 2. 체크박스 OMR 마킹 시트
+    st.markdown("##### ☑️ OMR 체크박스 마킹 시트")
+    st.caption("드롭다운 없이 클릭 한 번으로 선택할 수 있습니다. 틀렸거나 헷갈린 문항의 체크박스(☑️)를 툭툭 눌러주세요. (아무것도 체크하지 않은 문제는 자동으로 '🟢 확신'으로 스킵됩니다)")
+
+    editor_key = f"omr_editor_{st.session_state.current_exam_id}_{st.session_state.get('omr_editor_nonce', 0)}"
+
+    edited_df = st.data_editor(
+        st.session_state.omr_df,
+        key=editor_key,
         column_config={
             "문항": st.column_config.NumberColumn("문항 번호", disabled=True, width="small"),
-            "풀이 상태": st.column_config.SelectboxColumn("풀이 상태", options=status_choices, required=True, width="medium"),
-            "내가 고른 선지": st.column_config.SelectboxColumn("내가 고른 선지", options=[1, 2, 3, 4, 5], required=True, width="small"),
+            "🔴 오답": st.column_config.CheckboxColumn("🔴 오답", default=False, width="small"),
+            "🟡 확신 없음": st.column_config.CheckboxColumn("🟡 확신 없음", default=False, width="small"),
+            "⏱️ 찍음": st.column_config.CheckboxColumn("⏱️ 찍음/시간부족", default=False, width="small"),
+            "고른 선지": st.column_config.SelectboxColumn("내가 고른 선지", options=[1, 2, 3, 4, 5], required=True, width="small"),
         },
         use_container_width=True,
         hide_index=True,
         num_rows="fixed",
-        height=320
+        height=380
     )
-    st.session_state.omr_data = edited_omr
+    st.session_state.omr_df = edited_df
 
-    # 취약 문항 필터링 및 큐 생성
-    vulnerable_rows = edited_omr[edited_omr["풀이 상태"] != "🟢 확신 (건너뜀)"]
+    # 상태 판정 함수
+    def resolve_status(row):
+        if row["🔴 오답"]:
+            return "🔴 오답"
+        elif row["⏱️ 찍음"]:
+            return "⏱️ 시간부족/찍음"
+        elif row["🟡 확신 없음"]:
+            return "🟡 확신 없는 정답"
+        return "🟢 확신 (건너뜀)"
+
+    # 취약 문항 필터링 및 통계
+    vulnerable_rows = []
+    wrong_count = 0
+    unsure_count = 0
+    time_count = 0
+
+    for _, row in edited_df.iterrows():
+        stt = resolve_status(row)
+        if stt != "🟢 확신 (건너뜀)":
+            q_num = int(row["문항"])
+            pick = int(row["고른 선지"])
+            vulnerable_rows.append({
+                "q_num": q_num,
+                "status": stt,
+                "my_pick": pick
+            })
+            if stt == "🔴 오답":
+                wrong_count += 1
+            elif stt == "🟡 확신 없는 정답":
+                unsure_count += 1
+            elif stt == "⏱️ 시간부족/찍음":
+                time_count += 1
+
     vuln_count = len(vulnerable_rows)
 
-    st.write(f"🔍 **분석 대상 취약 문항:** 총 **{vuln_count}**개 (확신 문항 {total_q - vuln_count}개 자동 건너뜀)")
+    st.markdown(f"""
+    <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 12px 16px; border-radius: 8px; margin: 14px 0;">
+        <span style="font-size: 1.05rem; font-weight: bold; color: #0f172a;">
+            🔍 복원 대상 취약 문항: 총 {vuln_count}개
+        </span>
+        <div style="margin-top: 6px; font-size: 0.95rem; color: #475569;">
+            🔴 오답: <b>{wrong_count}개</b> &nbsp;|&nbsp; 
+            🟡 확신 없음: <b>{unsure_count}개</b> &nbsp;|&nbsp; 
+            ⏱️ 찍음: <b>{time_count}개</b> &nbsp;|&nbsp; 
+            🟢 확신: <b>{total_q - vuln_count}개</b> (자동 스킵)
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     if st.button("🚀 취약 문항 1:1 사고 복원 인터뷰 시작하기", type="primary", use_container_width=True):
         if vuln_count == 0:
             st.balloons()
             st.success("🎉 모든 문항에 확신을 가지고 풀었습니다! 복원할 취약 문항이 없습니다.")
         else:
-            # 큐 리스트 생성
-            queue = []
-            for _, row in vulnerable_rows.iterrows():
-                q_num = int(row["문항"])
-                queue.append({
-                    "q_num": q_num,
-                    "status": row["풀이 상태"],
-                    "my_pick": int(row["내가 고른 선지"])
-                })
-            
             st.session_state.exam_info = cur_exam
             st.session_state.total_time = total_time
             st.session_state.time_pressure = time_pressure
-            st.session_state.vulnerable_queue = queue
+            st.session_state.vulnerable_queue = vulnerable_rows
             st.session_state.queue_index = 0
             st.session_state.diagnosed_items = []
             st.session_state.student_stage = "INTERVIEW"
             
             # 첫 번째 문항 인터뷰 세팅
-            first_q = queue[0]
+            first_q = vulnerable_rows[0]
             st.session_state.interview_step = "CHAT"
             st.session_state.chat_history = [{
                 "role": "assistant",
@@ -572,7 +665,7 @@ def render_report_stage(client):
 
                 st.markdown(f"""
                 <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
-                    <b style="color: #166534;">💡 승하샘의 방어 훈련 미션:</b><br>
+                    <b style="color: #166534;">💡 방어 훈련 미션:</b><br>
                     <span style="color: #14532d; font-size: 0.95rem;">👉 <b>{prob['mission']}</b></span>
                 </div>
                 """, unsafe_allow_html=True)
@@ -583,7 +676,7 @@ def render_report_stage(client):
                     placeholder="예: 선지의 '~하기 위하여'라는 목적 표현이 지문의 2문단 3번째 줄에 서술된 '결과'와 인과관계가 전도되어 있어 오답으로 판별했습니다."
                 )
 
-                if st.button("🚀 승하샘 AI에게 방어 검증 받기", type="primary", use_container_width=True):
+                if st.button("🚀 AI에게 방어 검증 받기", type="primary", use_container_width=True):
                     if not client:
                         st.error("Gemini API Key가 설정되지 않아 피드백을 생성할 수 없습니다.")
                     elif not defense_input.strip():
@@ -601,7 +694,7 @@ def render_report_stage(client):
                     st.divider()
                     st.markdown(f"""
                     <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #3b82f6; padding: 14px; border-radius: 6px;">
-                        <b style="color: #1e3a8a;">👨‍🏫 승하샘의 1:1 방어 코칭:</b><br>
+                        <b style="color: #1e3a8a;">👨‍🏫 AI 1:1 방어 코칭:</b><br>
                         <div style="margin-top: 6px; color: #334155; line-height: 1.6;">
                             {st.session_state.training_feedback}
                         </div>
@@ -671,4 +764,6 @@ def render_report_stage(client):
             st.session_state.diagnosed_items = []
             st.session_state.active_training_problem = None
             st.session_state.training_feedback = None
+            if "omr_df" in st.session_state:
+                del st.session_state["omr_df"]
             st.rerun()

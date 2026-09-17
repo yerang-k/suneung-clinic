@@ -15,7 +15,7 @@ def render_admin_dashboard():
     tab1, tab2, tab3, tab4 = st.tabs([
         "👥 학생 계정 관리",
         "📄 시험지 및 PDF 업로드",
-        "🔗 구글 드라이브 처방 링크",
+        "⚙️ 마스터 연동 및 시스템 설정",
         "📊 학생 진단 제출 현황"
     ])
 
@@ -143,37 +143,78 @@ def render_admin_dashboard():
             else:
                 st.warning("이 시험지에는 아직 원문 PDF 파일이 등록되지 않았습니다. 상단에서 PDF 파일을 업로드해 주세요.")
 
-    # ---------------- 탭 3: 구글 드라이브 기출 PDF 마스터 폴더 설정 ----------------
+    # ---------------- 탭 3: 마스터 연동 및 시스템 설정 ----------------
     with tab3:
-        st.subheader("🔗 구글 드라이브 기출 모의고사 마스터 폴더 연동")
+        st.subheader("⚙️ 마스터 연동 및 시스템 설정")
         st.markdown("""
-        선생님의 구글 드라이브에 보관된 **최근 수능 및 평가원 모의고사 전체 PDF 폴더 링크**를 등록하세요.  
-        유형별로 문제지를 따로 쪼개놓지 않으셔도 괜찮습니다.  
-        **AI가 학생의 취약점(오류 태그)을 분석하여 해당 폴더 내 시험지 중 가장 적합한 문항과 페이지를 스스로 찾아내어 앱 내 실물 시험지로 즉시 띄워줍니다.**
+        이곳에서 저장한 설정은 **수정하기 전까지 영구적으로 저장 및 유지**됩니다.  
+        선생님이 여기서 Gemini API 키를 등록해두시면, 학생들은 별도의 키 입력 없이도 즉시 AI 인터뷰를 진행할 수 있습니다.
         """)
 
         cfg = get_admin_config()
         master_url = cfg.get("google_drive_folder_url", "")
+        master_api_key = cfg.get("gemini_api_key", "")
+        gas_url = cfg.get("gas_api_url", "")
 
         with st.form("drive_master_form"):
+            st.markdown("##### 🔑 교사용 공용 Gemini API Key")
+            st.caption("Google AI Studio에서 발급받은 키를 등록하면 학생 계정 전체에 공용으로 자동 적용됩니다.")
+            new_api_key = st.text_input(
+                "Gemini API Key",
+                value=master_api_key,
+                type="password",
+                placeholder="AI Studio API 키 입력"
+            )
+
+            st.divider()
+            st.markdown("##### 📂 구글 드라이브 기출 모의고사 마스터 폴더")
+            st.caption("최근 수능 및 평가원 모의고사 전체 PDF가 모인 구글 드라이브 폴더 공유 링크를 입력하세요.")
             new_master_url = st.text_input(
-                "📂 최근 수능/평가원 기출 PDF 보관 구글 드라이브 마스터 폴더 URL",
+                "구글 드라이브 마스터 폴더 URL",
                 value=master_url,
                 placeholder="https://drive.google.com/drive/folders/..."
             )
             
             st.divider()
-            gas_url = st.text_input("🌐 교사용 구글 스프레드시트(GAS) 웹앱 URL (선택사항)", value=cfg.get("gas_api_url", ""), placeholder="https://script.google.com/macros/s/...")
-            admin_pw_change = st.text_input("🔑 관리자 비밀번호 변경 (변경할 경우에만 입력)", type="password", placeholder="현재 비밀번호 유지 시 공란")
+            st.markdown("##### 🌐 교사용 구글 스프레드시트(GAS) 웹앱 URL (선택사항)")
+            st.caption("학생 진단 제출 시 실시간으로 기록을 누적할 Google Apps Script 웹앱 URL입니다.")
+            new_gas_url = st.text_input(
+                "GAS 웹앱 /exec URL",
+                value=gas_url,
+                placeholder="https://script.google.com/macros/s/..."
+            )
 
-            if st.form_submit_button("마스터 설정 저장하기", type="primary", use_container_width=True):
+            st.divider()
+            st.markdown("##### 🔒 관리자 마스터 비밀번호 변경")
+            st.caption("관리자 모드 접속 시 사용할 비밀번호입니다. (초기값: `teacher1234`)")
+            admin_pw_change = st.text_input(
+                "새 관리자 비밀번호 입력 (변경할 경우에만 입력)",
+                type="password",
+                placeholder="현재 비밀번호 유지 시 공란"
+            )
+
+            if st.form_submit_button("💾 관리자 설정 영구 저장하기", type="primary", use_container_width=True):
+                cfg["gemini_api_key"] = new_api_key.strip()
                 cfg["google_drive_folder_url"] = new_master_url.strip()
-                cfg["gas_api_url"] = gas_url.strip()
+                cfg["gas_api_url"] = new_gas_url.strip()
                 if admin_pw_change.strip():
                     cfg["admin_password"] = admin_pw_change.strip()
                 save_admin_config(cfg)
-                st.success("구글 드라이브 마스터 폴더 URL 및 관리자 설정이 저장되었습니다!")
+                st.success("✅ 모든 설정이 파일에 안전하게 저장되었습니다! 다시 수정하기 전까지 영구 유지됩니다.")
                 st.rerun()
+
+        st.divider()
+        st.markdown("##### 📋 현재 저장된 설정 상태")
+        col_st1, col_st2 = st.columns(2)
+        with col_st1:
+            api_status = "🟢 등록됨 (공용 활성화)" if cfg.get("gemini_api_key") else "⚪ 미등록 (학생 개별 입력 필요)"
+            st.write(f"• **교사용 API 키:** {api_status}")
+            drive_status = "🟢 연동됨" if cfg.get("google_drive_folder_url") else "⚪ 미등록"
+            st.write(f"• **구글 드라이브 폴더:** {drive_status}")
+        with col_st2:
+            gas_status = "🟢 연동됨" if cfg.get("gas_api_url") else "⚪ 미등록"
+            st.write(f"• **구글 스프레드시트(GAS):** {gas_status}")
+            st.write("• **관리자 비밀번호:** 🔒 설정됨")
 
         st.divider()
         with st.expander("💡 AI가 자동으로 탐색·매핑하는 6대 취약점별 기출 문항 풀 (인덱스 확인)"):
