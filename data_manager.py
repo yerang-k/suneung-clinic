@@ -2,6 +2,7 @@ import os
 import json
 import base64
 import threading
+import time
 from datetime import datetime
 import requests
 
@@ -927,70 +928,66 @@ def clear_student_progress(student_id: str):
 def call_gemini_safe(client, contents, config=None):
     """
     Gemini 모델 호출 시 404 NOT_FOUND 및 일시적 오류를 방지하기 위해
-    Google 주력 모델들을 스마트하게 순차 시도하고, 상세 진단 정보를 제공합니다.
+    Google 주력 텍스트 생성 모델들을 스마트하게 순차 시도하고,
+    429 RESOURCE_EXHAUSTED 발생 시 불필요한 모델 연쇄 폭격을 방지합니다.
     """
     if client is None:
         raise ValueError("Gemini API 클라이언트가 초기화되지 않았습니다. 사이드바에 API 키를 입력해 주세요.")
 
-    # 1. 시도할 후보 모델 목록 (최신 2.5 및 2.0, 1.5 계열)
-    default_candidates = [
-        "gemini-2.5-flash",
+    # 1. 안정성이 입증된 Google 주력 텍스트 생성 모델만 순서대로 시도
+    # (gemini-2.0-flash -> gemini-1.5-flash -> gemini-1.5-pro)
+    candidate_models = [
         "gemini-2.0-flash",
         "gemini-1.5-flash",
-        "gemini-1.5-pro",
-        "gemini-2.0-flash-lite",
-        "gemini-2.5-pro"
+        "gemini-1.5-pro"
     ]
 
-    candidate_models = list(default_candidates)
-
-    # 2. 가능한 경우 API 키가 접근 가능한 실제 모델 목록을 동적으로 탐색
-    try:
-        available_models = []
-        for m in client.models.list():
-            m_name = getattr(m, "name", str(m)).replace("models/", "")
-            if "gemini" in m_name.lower():
-                available_models.append(m_name)
-        if available_models:
-            # 주력 모델 우선순위대로 정렬하여 재배치
-            priority_order = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
-            sorted_available = []
-            for p in priority_order:
-                if p in available_models:
-                    sorted_available.append(p)
-            for m_name in available_models:
-                if m_name not in sorted_available:
-                    sorted_available.append(m_name)
-            if sorted_available:
-                candidate_models = sorted_available
-    except Exception:
-        # models.list 권한이 없거나 제한된 키의 경우 기본 후보군 유지
-        pass
-
     attempted_log = []
-    
-    for raw_m in candidate_models:
-        model_id = raw_m.replace("models/", "").strip()
-        try:
-            if config is not None:
-                return client.models.generate_content(model=model_id, contents=contents, config=config)
-            else:
-                return client.models.generate_content(model=model_id, contents=contents)
-        except Exception as e:
-            err_msg = str(e).strip()
-            attempted_log.append(f"• 모델 '{model_id}': {err_msg}")
-            # 404/NOT_FOUND/권한/일시적 오류 발생 시 다음 후보 모델 시도
-            continue
 
-    # 모든 후보 모델 호출 실패 시 상세한 원인 리포트 생성
+    for model_id in candidate_models:
+        for retry in range(2):
+            try:
+                if config is not None:
+                    return client.models.generate_content(model=model_id, contents=contents, config=config)
+                else:
+                    return client.models.generate_content(model=model_id, contents=contents)
+            except Exception as e:
+                err_msg = str(e).strip()
+                err_lower = err_msg.lower()
+
+                # 429 RESOURCE_EXHAUSTED (할당량 초과 / 분당 요청수 한도 도달)
+                if "429" in err_msg or "resource_exhausted" in err_lower or "quota" in err_lower:
+                    attempted_log.append(f"• 모델 '{model_id}' (시도 {retry+1}): 할당량 초과(429 RESOURCE_EXHAUSTED)")
+                    if retry == 0:
+                        # 2초 대기 후 1회 재시도 (일시적 RPM 스파이크 회복 시도)
+                        time.sleep(2)
+                        continue
+                    else:
+                        # 2회 연속 429 발생 시 다른 모델로의 연쇄 폭격을 즉시 중단하고 안내
+                        raise RuntimeError(
+                            "⚠️ Gemini API 사용량 한도(분당 15회 요청 제한 또는 일일 무료 할당량)가 일시적으로 소진되었습니다.\n\n"
+                            "약 1~2분 뒤에 다시 질문을 입력해 주시거나, 계속될 경우 왼쪽 메뉴바에서 새로운 Gemini API Key로 교체해 주세요."
+                        )
+
+                # 404 NOT_FOUND (해당 모델이 지역/계정에서 미지원인 경우)
+                elif "404" in err_msg or "not_found" in err_lower:
+                    attempted_log.append(f"• 모델 '{model_id}': 미지원(404 NOT_FOUND)")
+                    break  # 다음 후보 모델로
+
+                # 400 INVALID_ARGUMENT 또는 기타 오류
+                else:
+                    attempted_log.append(f"• 모델 '{model_id}': {err_msg[:120]}")
+                    break  # 다음 후보 모델로
+
+    # 모든 후보 모델 호출 실패 시
     error_summary = "\n".join(attempted_log)
     raise RuntimeError(
         f"Gemini AI 모델 호출에 실패했습니다.\n\n"
-        f"[시도한 모델 및 응답 결과]\n{error_summary}\n\n"
+        f"[시도 결과]\n{error_summary}\n\n"
         f"💡 확인 가이드:\n"
         f"1. Google AI Studio(https://aistudio.google.com)에서 API 키가 활성화되어 있는지 확인해 주세요.\n"
         f"2. 무료 티어 키의 경우 분당 호출 제한(RPM) 또는 일일 할당량(Quota) 초과 여부를 확인해 주세요.\n"
-        f"3. 왼쪽 사이드바에서 새 API 키로 교체 후 다시 시도하실 수 있습니다."
+        f"3. 왼쪽 메뉴바에서 새 API 키로 교체 후 다시 시도하실 수 있습니다."
     )
 
 
