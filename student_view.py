@@ -386,14 +386,14 @@ def render_interview_stage(client):
 
     # [좌측 열] 시험지 원문 뷰어 (PDF 또는 평가원 텍스트 뷰어)
     with col_paper:
-        pdf_b64, pdf_url = get_exam_pdf_source(exam_info["exam_id"])
+        pdf_path, pdf_b64, pdf_url = get_exam_pdf_source(exam_info["exam_id"])
         
         tab_pdf, tab_text = st.tabs(["📄 시험지 원문 (PDF)", "📝 문항 텍스트 집중 보기"])
         
         with tab_pdf:
-            if pdf_b64 or pdf_url:
+            if pdf_path or pdf_b64 or pdf_url:
                 st.caption("💡 실제 시험지 PDF 원문입니다. 확대/축소 및 페이지를 자유롭게 넘겨보며 당시 시야를 복기하세요.")
-                render_pdf_viewer(base64_pdf=pdf_b64, pdf_url=pdf_url, initial_page=1, height=720)
+                render_pdf_viewer(base64_pdf=pdf_b64, pdf_url=pdf_url, pdf_path=pdf_path, initial_page=1, height=720)
             else:
                 st.info(f"선생님이 아직 '{exam_info['title']}'의 원문 PDF를 등록하지 않았습니다. [문항 텍스트 집중 보기] 탭을 확인해 주세요.")
                 if q_num in SAMPLE_QUESTIONS_TEXT:
@@ -638,10 +638,10 @@ def render_report_stage(client):
 
             # 좌측: 해당 시험지 PDF 원문 뷰어 (해당 문제 페이지로 자동 점프)
             with col_train_pdf:
-                target_b64, target_url = get_exam_pdf_source(prob["exam_id"])
-                if target_b64 or target_url:
+                target_path, target_b64, target_url = get_exam_pdf_source(prob["exam_id"])
+                if target_path or target_b64 or target_url:
                     st.caption(f"📄 원문 시험지 **{prob['page']}페이지**로 자동 이동되었습니다. {prob['q_num']}번 문제를 확인하세요.")
-                    render_pdf_viewer(base64_pdf=target_b64, pdf_url=target_url, initial_page=prob["page"], height=680)
+                    render_pdf_viewer(base64_pdf=target_b64, pdf_url=target_url, pdf_path=target_path, initial_page=prob["page"], height=680)
                 else:
                     st.warning(f"📄 '{prob['exam_title']}' 원문 PDF가 앱 내에 아직 등록되지 않았습니다.")
                     if master_drive_url:

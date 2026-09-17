@@ -305,14 +305,15 @@ def get_exam_pdf_base64(exam_id: str):
     return None
 
 def get_exam_pdf_source(exam_id: str):
-    """시험지의 PDF 데이터 소스 (Base64 데이터, 웹/구글드라이브 URL)를 반환"""
+    """시험지의 PDF 데이터 소스 (파일 경로, Base64 데이터, 웹/구글드라이브 URL)를 반환"""
     exams = get_exams()
     if exam_id in exams:
         ex = exams[exam_id]
         url = ex.get("pdf_url", "")
-        b64 = get_exam_pdf_base64(exam_id)
-        return b64, url
-    return None, None
+        path = get_exam_pdf_path(exam_id)
+        b64 = get_exam_pdf_base64(exam_id) if not path else None
+        return path, b64, url
+    return None, None, None
 
 # --- 진단 제출 로그 (Submissions) ---
 def save_submission(sub_data: dict):

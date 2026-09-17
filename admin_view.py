@@ -176,13 +176,13 @@ def render_admin_dashboard():
                 key="preview_exam_select"
             )
             ex_info = exams[preview_eid]
-            b64, url = get_exam_pdf_source(preview_eid)
+            path, b64, url = get_exam_pdf_source(preview_eid)
 
             col_pi1, col_pi2, col_pi3 = st.columns([2, 2, 1])
             with col_pi1:
                 st.write(f"**시험 코드:** `{ex_info['exam_id']}` | **총 문항 수:** {ex_info['total_questions']}문항")
             with col_pi2:
-                has_pdf = bool(b64 or url)
+                has_pdf = bool(path or b64 or url)
                 status_txt = "✅ PDF 연결됨" if has_pdf else "❌ PDF 없음 (텍스트 모드로 동작)"
                 st.write(f"**PDF 상태:** {status_txt}")
             with col_pi3:
@@ -191,9 +191,9 @@ def render_admin_dashboard():
                     st.success(msg)
                     st.rerun()
 
-            if b64 or url:
+            if path or b64 or url:
                 st.markdown("###### [원문 PDF 뷰어 미리보기]")
-                render_pdf_viewer(base64_pdf=b64, pdf_url=url, initial_page=1, height=600)
+                render_pdf_viewer(base64_pdf=b64, pdf_url=url, pdf_path=path, initial_page=1, height=600)
             else:
                 st.warning(f"'{ex_info['title']}'에는 아직 원문 PDF 파일이 등록되지 않았습니다. 상단 '1단계'에서 PDF 파일 또는 구글 드라이브 링크를 연결해 주세요.")
 
