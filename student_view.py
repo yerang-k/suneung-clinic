@@ -213,19 +213,15 @@ def render_student_welcome_header():
     }.get(stage, "진단 진행 중")
 
     st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #bae6fd; border-radius: 12px; padding: 1.2rem 1.6rem; margin-bottom: 1.2rem; box-shadow: 0 2px 5px rgba(0,0,0,0.03);">
+    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #bae6fd; border-radius: 12px; padding: 1.1rem 1.5rem; margin-bottom: 1.2rem; box-shadow: 0 2px 5px rgba(0,0,0,0.03);">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
             <div>
                 <h2 style="color: #0369a1; margin: 0; font-size: 1.55rem; font-weight: 800; letter-spacing: -0.5px;">
                     👋 반가워요, <span style="color: #0284c7;">{student['name']}</span> ({student['student_id']}) 학생!
                 </h2>
-                <p style="color: #0c4a6e; margin: 6px 0 0 0; font-size: 0.98rem; font-weight: 500;">
-                    오답을 단순히 외우지 않고, <b>시험장 순간의 내 사고 경로</b>를 복원하여 평가원의 함정을 깨뜨립니다.
-                </p>
             </div>
             <div style="text-align: right; background: #ffffff; padding: 8px 16px; border-radius: 8px; border: 1px solid #bfdbfe;">
-                <span style="font-size: 0.85rem; color: #64748b;">현재 학습 단계</span><br>
-                <b style="font-size: 1.05rem; color: #0369a1;">🎯 {stage_desc}</b>
+                <b style="font-size: 1.02rem; color: #0369a1;">🎯 {stage_desc}</b>
             </div>
         </div>
     </div>
@@ -245,7 +241,6 @@ def render_stage_navigation_bar():
     done_vuln = len(diagnosed)
     
     with st.container():
-        st.caption("🧭 **학습 단계 이동 네비게이터** (원하는 단계를 클릭하여 언제든 자유롭게 오갈 수 있습니다)")
         col_nav1, col_nav2, col_nav3, col_save = st.columns([1.1, 1.4, 1.3, 0.9])
         
         with col_nav1:
@@ -289,9 +284,6 @@ def render_student_login():
     st.markdown("""
     <div style="text-align: center; margin-top: 2rem; margin-bottom: 2rem;">
         <h1 style="color: #0f172a;">🎯 수능 국어 사고 복원 클리닉</h1>
-        <p style="color: #64748b; font-size: 1.1rem;">
-            오답을 단순히 외우지 않고, <b>시험장 당시 나의 왜곡된 사고 경로</b>를 복원하여 평가원의 함정을 깨뜨립니다.
-        </p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -299,7 +291,6 @@ def render_student_login():
     with col2:
         with st.container(border=True):
             st.subheader("🎓 학생 로그인")
-            st.caption("선생님이 등록해주신 학번, 이름, 비밀번호로 로그인하세요.")
             
             with st.form("student_login_form"):
                 sid = st.text_input("학번 (예: 30101)", placeholder="30101", key="student_login_sid")
@@ -342,9 +333,6 @@ def render_student_login():
                             missing.append("비밀번호")
                         st.warning(f"⚠️ {', '.join(missing)}을(를) 입력해 주세요.")
             
-            st.divider()
-            st.caption("💡 테스트용 기본 계정: 학번 `30101`, 이름 `김수험`, 비밀번호 `1234`")
-            
             st.write("")
             if st.button("🔒 선생님 관리자 페이지 (?mode=admin)", key="btn_switch_admin", use_container_width=True):
                 st.query_params["mode"] = "admin"
@@ -369,7 +357,6 @@ def render_student_mypage():
     profile = get_student_vulnerability_profile(student["student_id"])
     
     st.markdown(f"### 📊 **{student['name']}** ({student['student_id']}) 님의 사고 복원 성장 기록")
-    st.caption("지금까지 응시한 모의평가·수능의 오답 복원 결과가 누적되어 나만의 맞춤형 취약점 지도를 형성합니다.")
 
     if not profile["has_history"]:
         st.info("💡 아직 제출된 진단 기록이 없습니다. 상단 **[✏️ 시험 진단실]** 탭에서 첫 번째 시험지 진단을 완료해 보세요!")
@@ -399,7 +386,6 @@ def render_student_mypage():
 
     with tab_summary:
         st.subheader("🚨 나의 6대 사고 오류 누적 분포")
-        st.caption("시험장에서 반복적으로 나타나는 무의식적 인지 왜곡 패턴입니다. 상위 취약점을 특히 경계하세요.")
 
         col_top, col_chart = st.columns([1.2, 1.8], gap="medium")
         with col_top:
@@ -425,7 +411,6 @@ def render_student_mypage():
 
     with tab_rules:
         st.subheader("🎯 수능장 지참용 나만의 행동 원칙 (Action Rules)")
-        st.caption("각 시험지에서 내가 직접 경험한 함정과 AI 소크라테스 인터뷰를 통해 도출한 '실전 방어 행동 원칙' 모음입니다.")
 
         if profile["action_rules"]:
             for idx, r in enumerate(profile["action_rules"], start=1):
@@ -511,11 +496,6 @@ def render_omr_stage():
     st.markdown("""
     <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 12px 16px; border-radius: 6px; margin-bottom: 1.2rem;">
         <b style="color: #1e293b; font-size: 1.05rem;">📝 1단계: 시험지 선택 및 OMR 풀이 상태 마킹</b>
-        <p style="color: #475569; margin: 4px 0 0 0; font-size: 0.93rem;">
-            오프라인에서 시간 맞춰 푼 시험지를 책상 위에 펼쳐놓으세요.<br>
-            <b>모든 문제를 다 대화할 필요는 없습니다.</b> <code>확신</code>하고 맞힌 문제는 자동으로 건너뛰고, 
-            <b><code>확신 없는 정답</code>, <code>오답</code>, <code>시간부족/찍음</code></b>으로 체크된 문제들만 AI와 1:1 사고 복원을 진행합니다.
-        </p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -539,9 +519,10 @@ def render_omr_stage():
 
     st.divider()
     st.subheader(f"📋 {cur_exam['title']} - 전체 문항 풀이 상태 기록")
-    st.caption("기본값은 '확신'입니다. 틀렸거나 헷갈렸거나 찍었던 문제만 상태를 변경해 주시면 됩니다.")
+    st.caption("기본값은 '확신'입니다. 틀렸거나 헷갈렸거나 찍었던 문제만 상태를 변경하세요.")
 
     # 시험지가 변경되었거나 OMR 데이터가 없는 경우 안전하게 초기화
+    opt_chars = ["①", "②", "③", "④", "⑤"]
     if "current_exam_id" not in st.session_state or st.session_state.current_exam_id != selected_exam_id or "omr_df" not in st.session_state:
         st.session_state.current_exam_id = selected_exam_id
         init_rows = [
@@ -550,7 +531,11 @@ def render_omr_stage():
                 "🔴 오답": False,
                 "🟡 확신 없음": False,
                 "⏱️ 찍음": False,
-                "고른 선지": 1
+                "①": True,
+                "②": False,
+                "③": False,
+                "④": False,
+                "⑤": False
             }
             for i in range(1, total_q + 1)
         ]
@@ -559,7 +544,6 @@ def render_omr_stage():
 
     # 1. 빠른 번호 일괄 지정 폼 (체크박스 자동 토글)
     with st.expander("⚡ 번호 직접 입력으로 빠르게 체크하기 (선택사항)", expanded=False):
-        st.caption("문항 번호를 적고 [일괄 적용]을 누르면 아래 체크박스가 자동으로 켜집니다.")
         with st.form("quick_omr_form"):
             col_q1, col_q2, col_q3 = st.columns(3)
             with col_q1:
@@ -617,7 +601,11 @@ def render_omr_stage():
                         "🔴 오답": False,
                         "🟡 확신 없음": False,
                         "⏱️ 찍음": False,
-                        "고른 선지": 1
+                        "①": True,
+                        "②": False,
+                        "③": False,
+                        "④": False,
+                        "⑤": False
                     }
                     for i in range(1, total_q + 1)
                 ]
@@ -626,9 +614,8 @@ def render_omr_stage():
                 st.info("전체 문항의 체크가 해제되었습니다. (모두 확신 상태)")
                 st.rerun()
 
-    # 2. 체크박스 OMR 마킹 시트
+    # 2. 체크박스 OMR 마킹 시트 (선지도 ①~⑤ 체크박스 형태로 직관화)
     st.markdown("##### ☑️ OMR 체크박스 마킹 시트")
-    st.caption("드롭다운 없이 클릭 한 번으로 선택할 수 있습니다. 틀렸거나 헷갈린 문항의 체크박스(☑️)를 툭툭 눌러주세요. (아무것도 체크하지 않은 문제는 자동으로 '🟢 확신'으로 스킵됩니다)")
 
     editor_key = f"omr_editor_{st.session_state.current_exam_id}_{st.session_state.get('omr_editor_nonce', 0)}"
 
@@ -636,17 +623,35 @@ def render_omr_stage():
         st.session_state.omr_df,
         key=editor_key,
         column_config={
-            "문항": st.column_config.NumberColumn("문항 번호", disabled=True, width="small"),
+            "문항": st.column_config.NumberColumn("문항", disabled=True, width="small"),
             "🔴 오답": st.column_config.CheckboxColumn("🔴 오답", default=False, width="small"),
             "🟡 확신 없음": st.column_config.CheckboxColumn("🟡 확신 없음", default=False, width="small"),
-            "⏱️ 찍음": st.column_config.CheckboxColumn("⏱️ 찍음/시간부족", default=False, width="small"),
-            "고른 선지": st.column_config.SelectboxColumn("내가 고른 선지", options=[1, 2, 3, 4, 5], required=True, width="small"),
+            "⏱️ 찍음": st.column_config.CheckboxColumn("⏱️ 찍음", default=False, width="small"),
+            "①": st.column_config.CheckboxColumn("①", default=True, width="small"),
+            "②": st.column_config.CheckboxColumn("②", default=False, width="small"),
+            "③": st.column_config.CheckboxColumn("③", default=False, width="small"),
+            "④": st.column_config.CheckboxColumn("④", default=False, width="small"),
+            "⑤": st.column_config.CheckboxColumn("⑤", default=False, width="small"),
         },
         use_container_width=True,
         hide_index=True,
         num_rows="fixed",
         height=380
     )
+
+    # 선지 체크박스 단일 선택(라디오 동작) 자동 보정
+    for idx in range(len(edited_df)):
+        row = edited_df.iloc[idx]
+        checked = [c for c in opt_chars if row.get(c, False)]
+        if len(checked) > 1:
+            prev_row = st.session_state.omr_df.iloc[idx] if idx < len(st.session_state.omr_df) else None
+            newly = [c for c in checked if prev_row is not None and not prev_row.get(c, False)]
+            keep = newly[-1] if newly else checked[-1]
+            for c in opt_chars:
+                edited_df.iat[idx, edited_df.columns.get_loc(c)] = (c == keep)
+        elif len(checked) == 0:
+            edited_df.iat[idx, edited_df.columns.get_loc("①")] = True
+
     st.session_state.omr_df = edited_df
 
     # 상태 판정 함수
@@ -659,6 +664,12 @@ def render_omr_stage():
             return "🟡 확신 없는 정답"
         return "🟢 확신 (건너뜀)"
 
+    def resolve_pick(row):
+        for opt_num, opt_char in [(5, "⑤"), (4, "④"), (3, "③"), (2, "②"), (1, "①")]:
+            if row.get(opt_char, False):
+                return opt_num
+        return 1
+
     # 취약 문항 필터링 및 통계
     vulnerable_rows = []
     wrong_count = 0
@@ -669,7 +680,7 @@ def render_omr_stage():
         stt = resolve_status(row)
         if stt != "🟢 확신 (건너뜀)":
             q_num = int(row["문항"])
-            pick = int(row["고른 선지"])
+            pick = resolve_pick(row)
             vulnerable_rows.append({
                 "q_num": q_num,
                 "status": stt,
@@ -791,7 +802,6 @@ def render_interview_stage(client):
             st.rerun()
 
     # 취약 문항 빠른 점프 및 완료 현황 칩
-    st.caption("👇 복원할 문항을 클릭하여 원하는 문항을 먼저 진행하거나 이전 문항을 확인할 수 있습니다.")
     chip_cols = st.columns(min(max(len(queue), 1), 8))
     for idx, item in enumerate(queue):
         col_target = chip_cols[idx % min(max(len(queue), 1), 8)]
@@ -849,7 +859,6 @@ def render_interview_stage(client):
         
         with tab_pdf:
             if pdf_path or pdf_b64 or pdf_url:
-                st.caption("💡 마우스 휠로 위아래를 스크롤하여 지문과 선지를 확인하세요. (우측 채팅창은 고정됩니다)")
                 render_pdf_viewer(base64_pdf=pdf_b64, pdf_url=pdf_url, pdf_path=pdf_path, initial_page=1, height=VIEWER_HEIGHT)
             else:
                 st.info(f"선생님이 아직 '{exam_info['title']}'의 원문 PDF를 등록하지 않았습니다. [문항 텍스트 집중 보기] 탭을 확인해 주세요.")
@@ -870,7 +879,6 @@ def render_interview_stage(client):
     with col_chat:
         if st.session_state.interview_step == "CHAT":
             st.markdown("### 💬 AI 사고 복원 인터뷰")
-            st.caption("💡 화면에 고정된 대화창입니다. 질문에 맞춰 당시 생각을 편하게 적어주세요.")
 
             # 1. 고정 높이 스크롤 메시지 박스 (카카오톡 스타일: AI 좌측, 학생 우측 정렬)
             chat_box = st.container(height=VIEWER_HEIGHT - 100)
@@ -1169,7 +1177,6 @@ def render_report_stage(client):
                 
                 with tab_tr_pdf:
                     if target_path or target_b64 or target_url:
-                        st.caption(f"📄 시험지 **{prob['page']}페이지**로 자동 이동되었습니다. {prob['q_num']}번 문제를 확인하세요. (우측은 고정됩니다)")
                         render_pdf_viewer(base64_pdf=target_b64, pdf_url=target_url, pdf_path=target_path, initial_page=prob["page"], height=580)
                     else:
                         st.info(f"선생님의 구글 드라이브 또는 기출 저장소에서 '{prob['exam_title']}' 원문을 연결할 수 있습니다.")
@@ -1181,7 +1188,6 @@ def render_report_stage(client):
                                 </button>
                             </a>
                             """, unsafe_allow_html=True)
-                        st.caption("👉 상단의 [📝 문항 텍스트 집중 보기] 탭을 누르시면 지문과 문제를 즉시 확인하실 수 있습니다.")
 
                 with tab_tr_text:
                     with st.container(height=580):

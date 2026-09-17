@@ -93,7 +93,6 @@ if "student_stage" not in st.session_state:
 # ==========================================
 with st.sidebar:
     st.title("🎯 수능 한 문제 더")
-    st.caption("메타인지 기반 사고 복원 & 평가원 함정 클리닉")
 
     # 교사 전용 모드 접속 중 안내 배너
     if st.session_state.app_mode == "ADMIN":
@@ -108,7 +107,6 @@ with st.sidebar:
             student = st.session_state.auth_student
             with st.container(border=True):
                 st.markdown(f"🎓 **{student['name']}** ({student['student_id']})")
-                st.caption("클리닉 접속 중")
                 if st.button("🚪 학생 로그아웃", use_container_width=True):
                     st.session_state.auth_student = None
                     st.session_state.student_stage = "LOGIN"
@@ -183,7 +181,6 @@ if st.session_state.app_mode == "ADMIN":
     # 🔒 교사용 관리자 모드
     if not st.session_state.is_admin_authenticated:
         st.subheader("🔒 교사용 관리자 로그인")
-        st.caption("학생 계정, 시험지 원문 PDF 및 구글 드라이브 처방 링크를 설정하려면 관리자 비밀번호를 입력하세요.")
         
         col1, col2, col3 = st.columns([1, 1.2, 1])
         with col2:
