@@ -16,6 +16,7 @@ CONFIG_FILE = os.path.join(DATA_DIR, "admin_config.json")
 EXAMS_DIR = os.path.join(DATA_DIR, "exams")
 EXAMS_META_FILE = os.path.join(EXAMS_DIR, "exams_meta.json")
 SUBMISSIONS_FILE = os.path.join(DATA_DIR, "submissions.json")
+PROGRESS_DIR = os.path.join(DATA_DIR, "progress")
 
 DEFAULT_CONFIG = {
     "admin_password": "teacher1234",
@@ -71,6 +72,7 @@ DEFAULT_EXAMS = {
 def init_data_dirs():
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(EXAMS_DIR, exist_ok=True)
+    os.makedirs(PROGRESS_DIR, exist_ok=True)
     
     # admin_config.json 초기화 및 누락 키 보정
     if not os.path.exists(CONFIG_FILE):
@@ -641,6 +643,63 @@ def get_student_vulnerability_profile(student_id: str) -> dict:
         "action_rules": action_rules,
         "recent_exams": recent_exams
     }
+
+# ==========================================
+# --- 학생 학습 진행 상태(Progress) 영구 저장 & 이어하기 엔진 ---
+# ==========================================
+def get_student_progress_file(student_id: str) -> str:
+    s_id = str(student_id).strip()
+    return os.path.join(PROGRESS_DIR, f"progress_{s_id}.json")
+
+def save_student_progress(student_id: str, progress_data: dict):
+    """
+    학생의 학습 진행 상태를 영구 저장합니다.
+    (진행 중인 시험 정보, OMR 마킹 상태, 취약 문항 복원 진행률, 확정된 사고 분석 목록, 리포트 단계 등)
+    """
+    init_data_dirs()
+    if not student_id:
+        return
+    s_id = str(student_id).strip()
+    progress_data["student_id"] = s_id
+    progress_data["saved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    p_file = get_student_progress_file(s_id)
+    try:
+        with open(p_file, "w", encoding="utf-8") as f:
+            json.dump(progress_data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+    # 구글 시트로도 비동기 백업
+    push_to_google_sheets("save_progress", {"progress": progress_data})
+
+def get_student_progress(student_id: str) -> dict:
+    """학생의 직전 학습 진행 상태를 불러옵니다 (이어하기 기능)"""
+    init_data_dirs()
+    if not student_id:
+        return None
+    s_id = str(student_id).strip()
+    p_file = get_student_progress_file(s_id)
+    if os.path.exists(p_file):
+        try:
+            with open(p_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if data and isinstance(data, dict):
+                    return data
+        except Exception:
+            pass
+    return None
+
+def clear_student_progress(student_id: str):
+    """새로운 시험을 시작하거나 완료 후 초기화할 때 진행 상태를 삭제"""
+    init_data_dirs()
+    if not student_id:
+        return
+    s_id = str(student_id).strip()
+    p_file = get_student_progress_file(s_id)
+    if os.path.exists(p_file):
+        try:
+            os.remove(p_file)
+        except Exception:
+            pass
 
 def call_gemini_safe(client, contents, config=None):
     """

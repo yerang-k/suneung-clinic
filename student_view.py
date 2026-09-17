@@ -7,7 +7,8 @@ from data_manager import (
     verify_student, get_exams, get_exam_pdf_base64,
     get_exam_pdf_source, get_admin_config, save_submission,
     get_student_submissions, get_student_vulnerability_profile,
-    call_gemini_safe
+    call_gemini_safe, save_student_progress, get_student_progress,
+    clear_student_progress
 )
 from pdf_viewer import render_pdf_viewer, render_csat_text_view
 from prescription_engine import get_prescription_problems, evaluate_student_defense
@@ -106,6 +107,99 @@ def safe_parse_json(text: str):
         raise ValueError("JSON 응답을 해석할 수 없습니다.")
 
 # ==========================================
+# --- 학생 학습 상태 영구 보존 및 단계 네비게이션 엔진 ---
+# ==========================================
+def save_current_student_progress():
+    """현재 세션의 모든 학습 상태를 디스크 및 구글 시트에 영구 보존"""
+    student = st.session_state.get("auth_student")
+    if not student:
+        return
+    sid = student.get("student_id")
+    if not sid:
+        return
+    
+    progress_data = {
+        "student_stage": st.session_state.get("student_stage", "OMR"),
+        "exam_info": st.session_state.get("exam_info"),
+        "total_time": st.session_state.get("total_time", 80),
+        "time_pressure": st.session_state.get("time_pressure", "보통"),
+        "vulnerable_queue": st.session_state.get("vulnerable_queue", []),
+        "queue_index": st.session_state.get("queue_index", 0),
+        "interview_step": st.session_state.get("interview_step", "CHAT"),
+        "chat_history": st.session_state.get("chat_history", []),
+        "draft_summary": st.session_state.get("draft_summary", ""),
+        "current_analysis": st.session_state.get("current_analysis"),
+        "diagnosed_items": st.session_state.get("diagnosed_items", []),
+        "active_training_problem": st.session_state.get("active_training_problem"),
+        "training_feedback": st.session_state.get("training_feedback")
+    }
+    save_student_progress(sid, progress_data)
+
+def load_student_progress_to_session(progress_data: dict):
+    """저장된 학습 상태를 현재 Streamlit 세션으로 완벽 복원"""
+    if not progress_data:
+        return
+    keys = [
+        "student_stage", "exam_info", "total_time", "time_pressure",
+        "vulnerable_queue", "queue_index", "interview_step", "chat_history",
+        "draft_summary", "current_analysis", "diagnosed_items",
+        "active_training_problem", "training_feedback"
+    ]
+    for k in keys:
+        if k in progress_data and progress_data[k] is not None:
+            st.session_state[k] = progress_data[k]
+
+def render_stage_navigation_bar():
+    """
+    학생 진단실 상단 단계 선택 네비게이터:
+    1단계: OMR 마킹 및 선별
+    2단계: 1:1 사고 복원 인터뷰
+    3단계: 종합 리포트 & AI 기출 방어 훈련
+    """
+    cur_stage = st.session_state.get("student_stage", "OMR")
+    queue = st.session_state.get("vulnerable_queue", [])
+    diagnosed = st.session_state.get("diagnosed_items", [])
+    total_vuln = len(queue)
+    done_vuln = len(diagnosed)
+    
+    with st.container():
+        col_nav1, col_nav2, col_nav3, col_save = st.columns([1.1, 1.4, 1.3, 0.9])
+        
+        with col_nav1:
+            is_omr = (cur_stage == "OMR")
+            omr_label = "1️⃣ OMR 마킹" + (" (현재)" if is_omr else "")
+            if st.button(omr_label, type="primary" if is_omr else "secondary", use_container_width=True):
+                st.session_state.student_stage = "OMR"
+                save_current_student_progress()
+                st.rerun()
+
+        with col_nav2:
+            is_interview = (cur_stage == "INTERVIEW")
+            stat_text = f" ({done_vuln}/{total_vuln} 완료)" if total_vuln > 0 else ""
+            btn_label = f"2️⃣ 사고 복원{stat_text}" + (" (현재)" if is_interview else "")
+            can_go_interview = (total_vuln > 0)
+            if st.button(btn_label, type="primary" if is_interview else "secondary", disabled=not can_go_interview, use_container_width=True):
+                st.session_state.student_stage = "INTERVIEW"
+                save_current_student_progress()
+                st.rerun()
+
+        with col_nav3:
+            is_report = (cur_stage == "REPORT")
+            btn_label = "3️⃣ 리포트 & 방어훈련" + (" (현재)" if is_report else "")
+            can_go_report = (done_vuln > 0 or cur_stage == "REPORT")
+            if st.button(btn_label, type="primary" if is_report else "secondary", disabled=not can_go_report, use_container_width=True):
+                st.session_state.student_stage = "REPORT"
+                save_current_student_progress()
+                st.rerun()
+
+        with col_save:
+            if st.button("💾 저장 후 멈춤", help="현재까지의 진행 상황을 저장해 두고, 나중에 이어서 풀 수 있습니다.", use_container_width=True):
+                save_current_student_progress()
+                st.toast("✅ 현재까지의 학습 진행 상태가 안전하게 저장되었습니다! 다음에 로그인 시 바로 이어서 하실 수 있습니다.")
+
+    st.divider()
+
+# ==========================================
 # 1. 학생 로그인 뷰
 # ==========================================
 def render_student_login():
@@ -139,14 +233,19 @@ def render_student_login():
                         ok, res = verify_student(sid_clean, name_clean, pw_clean)
                         if ok:
                             st.session_state.auth_student = res
-                            st.session_state.student_stage = "OMR"
-                            st.session_state.chat_history = []
-                            st.session_state.interview_step = "CHAT"
-                            st.session_state.vulnerable_queue = []
-                            st.session_state.queue_index = 0
-                            st.session_state.diagnosed_items = []
-                            if "omr_df" in st.session_state:
-                                del st.session_state["omr_df"]
+                            # 이전 저장된 진행 상태 확인 및 자동 복원
+                            saved_prog = get_student_progress(sid_clean)
+                            if saved_prog and (saved_prog.get("vulnerable_queue") or saved_prog.get("student_stage") in ["INTERVIEW", "REPORT"]):
+                                load_student_progress_to_session(saved_prog)
+                            else:
+                                st.session_state.student_stage = "OMR"
+                                st.session_state.chat_history = []
+                                st.session_state.interview_step = "CHAT"
+                                st.session_state.vulnerable_queue = []
+                                st.session_state.queue_index = 0
+                                st.session_state.diagnosed_items = []
+                                if "omr_df" in st.session_state:
+                                    del st.session_state["omr_df"]
                             st.rerun()
                         else:
                             st.error(f"❌ {res}")
@@ -271,6 +370,23 @@ def render_student_mypage():
                     st.markdown(f"- 😈 **평가원 함정 설계:** {d.get('evaluator_trap')}")
                     st.markdown(f"- 💡 **실전 행동 원칙:** *{d.get('action_rule')}*")
                     st.write("")
+                
+                st.markdown("---")
+                if st.button(f"🎯 [{s.get('exam_title')}] AI 맞춤 기출 방어 훈련 바로 열기", key=f"reopen_report_{s.get('submission_id') or s.get('timestamp')}", use_container_width=True, type="primary"):
+                    st.session_state.exam_info = {
+                        "exam_id": s.get("exam_id"),
+                        "title": s.get("exam_title"),
+                        "total_questions": len(s.get("diagnosed_items", []))
+                    }
+                    st.session_state.total_time = s.get("total_time", 80)
+                    st.session_state.time_pressure = s.get("time_pressure", "보통")
+                    st.session_state.diagnosed_items = s.get("diagnosed_items", [])
+                    st.session_state.student_stage = "REPORT"
+                    st.session_state.active_training_problem = None
+                    st.session_state.training_feedback = None
+                    save_current_student_progress()
+                    st.toast(f"'{s.get('exam_title')}'의 종합 진단 리포트 및 맞춤 처방 화면으로 이동합니다.")
+                    st.rerun()
 
 # ==========================================
 # 2. OMR 일괄 상태 입력 뷰
@@ -279,6 +395,30 @@ def render_omr_stage():
     student = st.session_state.auth_student
     st.markdown(f"### 👋 반가워요, **{student['name']}** ({student['student_id']}) 학생!")
     
+    # 이전 저장된 진행 상태가 있는 경우 알림 및 이어하기 배너 제공
+    saved_prog = get_student_progress(student["student_id"])
+    if saved_prog and saved_prog.get("exam_info"):
+        prev_exam_title = saved_prog.get("exam_info", {}).get("title", "시험")
+        prev_stage = saved_prog.get("student_stage", "INTERVIEW")
+        prev_diagnosed = saved_prog.get("diagnosed_items", [])
+        prev_queue = saved_prog.get("vulnerable_queue", [])
+        stage_name = "2단계 사고 복원 인터뷰" if prev_stage == "INTERVIEW" else ("3단계 AI 맞춤 방어 훈련" if prev_stage == "REPORT" else "1단계 OMR")
+        
+        with st.container(border=True):
+            st.markdown("#### 📌 이전에 진행 중이던 학습 기록이 있습니다!")
+            st.write(f"📝 **{prev_exam_title}** | 진행 단계: **{stage_name}** | 복원 완료: **{len(prev_diagnosed)}/{len(prev_queue)} 문항**")
+            col_res1, col_res2 = st.columns([1.5, 1])
+            with col_res1:
+                if st.button(f"▶️ [{stage_name}] 이어서 계속하기", type="primary", use_container_width=True, key="btn_resume_progress"):
+                    load_student_progress_to_session(saved_prog)
+                    st.rerun()
+            with col_res2:
+                if st.button("🔄 이전 기록 지우고 새로 시작", use_container_width=True, key="btn_clear_prev_progress"):
+                    clear_student_progress(student["student_id"])
+                    st.info("이전 학습 기록을 지우고 새로 시작합니다.")
+                    st.rerun()
+        st.write("")
+
     # 학생의 과거 누적 취약점 프로필 조회 및 경보 배너 표시
     profile = get_student_vulnerability_profile(student["student_id"])
     if profile.get("has_history") and profile.get("top_vulnerabilities"):
@@ -492,6 +632,7 @@ def render_omr_stage():
             }]
             st.session_state.draft_summary = ""
             st.session_state.current_analysis = None
+            save_current_student_progress()
             st.rerun()
 
 def get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick):
@@ -556,9 +697,39 @@ def render_interview_stage(client):
             caption_base += f" | 🧠 *과거 취약점 연동: {top_str}*"
         st.caption(caption_base)
     with col_stat2:
-        if st.button("⏹️ 진단 중단 및 OMR로 돌아가기"):
+        if st.button("⏹️ OMR로 돌아가기", use_container_width=True):
             st.session_state.student_stage = "OMR"
+            save_current_student_progress()
             st.rerun()
+
+    # 취약 문항 빠른 점프 및 완료 현황 칩
+    st.caption("👇 복원할 문항을 클릭하여 원하는 문항을 먼저 진행하거나 이전 문항을 확인할 수 있습니다.")
+    chip_cols = st.columns(min(max(len(queue), 1), 8))
+    for idx, item in enumerate(queue):
+        col_target = chip_cols[idx % min(max(len(queue), 1), 8)]
+        with col_target:
+            is_cur = (idx == q_idx)
+            is_done = any(d.get("q_num") == item["q_num"] for d in st.session_state.get("diagnosed_items", []))
+            icon = "✅" if is_done else ("🎯" if is_cur else "⏳")
+            lbl = f"{icon} {item['q_num']}번"
+            
+            if st.button(lbl, key=f"nav_chip_q_{idx}", use_container_width=True, help=f"{item['q_num']}번 ({item['status']}) - 클릭 시 이동"):
+                if idx != q_idx:
+                    st.session_state.queue_index = idx
+                    target_q = queue[idx]
+                    done_item = next((d for d in st.session_state.get("diagnosed_items", []) if d.get("q_num") == target_q["q_num"]), None)
+                    if done_item:
+                        st.session_state.interview_step = "ITEM_COMPLETED"
+                        st.session_state.current_analysis = done_item
+                    else:
+                        st.session_state.interview_step = "CHAT"
+                        st.session_state.current_analysis = None
+                        st.session_state.chat_history = [{
+                            "role": "assistant",
+                            "content": f"좋아! **{target_q['q_num']}번** 문항이야. [{target_q['status']}] 상태로 **{target_q['my_pick']}번**을 골랐네. 이 문항에서는 어떤 점이 헷갈렸는지 당시 생각을 편하게 말해줘!"
+                        }]
+                    save_current_student_progress()
+                    st.rerun()
 
     # 좌측 PDF창과 우측 채팅창의 완벽한 분리 및 우측 고정 CSS
     st.markdown("""
@@ -749,9 +920,16 @@ def render_interview_stage(client):
                         analysis_data["student_thought"] = edited_thought
 
                         st.session_state.current_analysis = analysis_data
-                        st.session_state.diagnosed_items.append(analysis_data)
+                        # 기존 복원 목록에 중복 문항이 있으면 갱신, 없으면 추가
+                        existing_idx = next((i for i, d in enumerate(st.session_state.diagnosed_items) if d.get("q_num") == q_num), None)
+                        if existing_idx is not None:
+                            st.session_state.diagnosed_items[existing_idx] = analysis_data
+                        else:
+                            st.session_state.diagnosed_items.append(analysis_data)
+                        
                         st.session_state.interview_step = "ITEM_COMPLETED"
                         st.session_state["last_review_error"] = None
+                        save_current_student_progress()
                         st.rerun()  # ✅ 성공 시에만 리런
                     except Exception as e:
                         st.session_state["last_review_error"] = str(e)
@@ -770,18 +948,27 @@ def render_interview_stage(client):
             # 큐의 다음 문항으로 이동할지 여부 결정
             if q_idx + 1 < len(queue):
                 next_q = queue[q_idx + 1]
-                if st.button(f"➡️ 다음 취약 문항 복원하기 ({q_idx + 2} / {len(queue)} - {next_q['q_num']}번)", type="primary", use_container_width=True):
-                    st.session_state.queue_index += 1
-                    st.session_state.interview_step = "CHAT"
-                    st.session_state.current_analysis = None
-                    st.session_state.chat_history = [{
-                        "role": "assistant",
-                        "content": f"좋아! 다음은 **{next_q['q_num']}번** 문항이야. [{next_q['status']}] 상태로 **{next_q['my_pick']}번**을 골랐네. 이 문항에서는 어떤 점이 헷갈렸는지 편하게 말해줘!"
-                    }]
-                    st.rerun()
+                col_next_btn, col_skip_rep = st.columns([1.4, 1])
+                with col_next_btn:
+                    if st.button(f"➡️ 다음 취약 문항 복원하기 ({q_idx + 2} / {len(queue)} - {next_q['q_num']}번)", type="primary", use_container_width=True):
+                        st.session_state.queue_index += 1
+                        st.session_state.interview_step = "CHAT"
+                        st.session_state.current_analysis = None
+                        st.session_state.chat_history = [{
+                            "role": "assistant",
+                            "content": f"좋아! 다음은 **{next_q['q_num']}번** 문항이야. [{next_q['status']}] 상태로 **{next_q['my_pick']}번**을 골랐네. 이 문항에서는 어떤 점이 헷갈렸는지 편하게 말해줘!"
+                        }]
+                        save_current_student_progress()
+                        st.rerun()
+                with col_skip_rep:
+                    if st.button("📊 3단계 방어 훈련 먼저 보기", use_container_width=True, help="남은 문항은 나중에 복원하고, 지금까지 완료한 문항들의 리포트와 AI 맞춤 훈련을 먼저 진행합니다."):
+                        st.session_state.student_stage = "REPORT"
+                        save_current_student_progress()
+                        st.rerun()
             else:
                 if st.button("🏁 모든 취약 문항 복원 완료! 종합 진단 보고서 및 맞춤 처방 보기", type="primary", use_container_width=True):
                     st.session_state.student_stage = "REPORT"
+                    save_current_student_progress()
                     st.rerun()
 
 # ==========================================
@@ -789,8 +976,19 @@ def render_interview_stage(client):
 # ==========================================
 def render_report_stage(client):
     student = st.session_state.auth_student
-    exam_info = st.session_state.exam_info
-    diagnosed = st.session_state.diagnosed_items
+    exam_info = st.session_state.get("exam_info")
+    diagnosed = st.session_state.get("diagnosed_items", [])
+    
+    if not exam_info or not diagnosed:
+        st.info("💡 아직 완료된 문항 복원 기록이 없습니다. 상단 **[1️⃣ OMR 마킹]** 또는 **[2️⃣ 사고 복원]** 단계를 먼저 진행해 주세요.")
+        if st.button("⬅️ 1단계 OMR로 이동하기", type="primary"):
+            st.session_state.student_stage = "OMR"
+            st.rerun()
+        return
+
+    # 3단계 진입 상태 자동 저장 (백그라운드 영구 보존)
+    save_current_student_progress()
+
     cfg = get_admin_config()
     master_drive_url = cfg.get("google_drive_folder_url", "")
 
@@ -933,6 +1131,7 @@ def render_report_stage(client):
                                 fb = evaluate_student_defense(client, prob, defense_input)
                                 st.session_state.training_feedback = fb
                                 st.session_state["training_feedback_error"] = None
+                                save_current_student_progress()
                                 st.rerun()  # ✅ 성공 시에만 리런
                             except Exception as e:
                                 st.session_state["training_feedback_error"] = str(e)
@@ -972,6 +1171,7 @@ def render_report_stage(client):
                         if st.button(f"🎯 실물 시험지 띄우고 방어 훈련 ({p['q_num']}번)", key=f"btn_train_{p['id']}", use_container_width=True):
                             st.session_state.active_training_problem = p
                             st.session_state.training_feedback = None
+                            save_current_student_progress()
                             st.rerun()
 
     st.divider()
@@ -1009,7 +1209,9 @@ def render_report_stage(client):
 
     with col_b2:
         if st.button("🔄 새로운 시험 진단하기 (초기화)", use_container_width=True):
+            clear_student_progress(student["student_id"])
             st.session_state.student_stage = "OMR"
+            st.session_state.exam_info = None
             st.session_state.vulnerable_queue = []
             st.session_state.queue_index = 0
             st.session_state.diagnosed_items = []

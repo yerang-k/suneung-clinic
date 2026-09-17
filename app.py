@@ -9,6 +9,7 @@ from data_manager import (
 from admin_view import render_admin_dashboard
 from student_view import (
     render_student_login,
+    render_stage_navigation_bar,
     render_omr_stage,
     render_interview_stage,
     render_report_stage,
@@ -162,6 +163,9 @@ else:
         ])
         
         with student_tab1:
+            # ⭐️ 상단 3단계 네비게이션 바 & 저장/이어하기 바
+            render_stage_navigation_bar()
+
             stage = st.session_state.get("student_stage", "OMR")
             
             if stage == "OMR":
