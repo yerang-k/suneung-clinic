@@ -149,6 +149,44 @@ def load_student_progress_to_session(progress_data: dict):
         if k in progress_data and progress_data[k] is not None:
             st.session_state[k] = progress_data[k]
 
+def render_student_welcome_header():
+    """
+    학생 진단실 최상단 고정 헤더:
+    '반가워요, ~ 학생!' 환영 문구와 학생 상태를 가장 위에 크고 명확하게 표시
+    """
+    student = st.session_state.get("auth_student")
+    if not student:
+        return
+    
+    stage = st.session_state.get("student_stage", "OMR")
+    exam_info = st.session_state.get("exam_info")
+    exam_title = exam_info["title"] if exam_info else "시험지 선택 대기"
+    
+    stage_desc = {
+        "OMR": "1단계: 시험지 선택 & OMR 마킹",
+        "INTERVIEW": "2단계: 1:1 사고 복원 인터뷰 진행 중",
+        "REPORT": "3단계: 종합 리포트 & AI 방어 훈련"
+    }.get(stage, "진단 진행 중")
+
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #bae6fd; border-radius: 12px; padding: 1.2rem 1.6rem; margin-bottom: 1.2rem; box-shadow: 0 2px 5px rgba(0,0,0,0.03);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h2 style="color: #0369a1; margin: 0; font-size: 1.55rem; font-weight: 800; letter-spacing: -0.5px;">
+                    👋 반가워요, <span style="color: #0284c7;">{student['name']}</span> ({student['student_id']}) 학생!
+                </h2>
+                <p style="color: #0c4a6e; margin: 6px 0 0 0; font-size: 0.98rem; font-weight: 500;">
+                    오답을 단순히 외우지 않고, <b>시험장 순간의 내 사고 경로</b>를 복원하여 평가원의 함정을 깨뜨립니다.
+                </p>
+            </div>
+            <div style="text-align: right; background: #ffffff; padding: 8px 16px; border-radius: 8px; border: 1px solid #bfdbfe;">
+                <span style="font-size: 0.85rem; color: #64748b;">현재 학습 단계</span><br>
+                <b style="font-size: 1.05rem; color: #0369a1;">🎯 {stage_desc}</b>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 def render_stage_navigation_bar():
     """
     학생 진단실 상단 단계 선택 네비게이터:
@@ -163,12 +201,13 @@ def render_stage_navigation_bar():
     done_vuln = len(diagnosed)
     
     with st.container():
+        st.caption("🧭 **학습 단계 이동 네비게이터** (원하는 단계를 클릭하여 언제든 자유롭게 오갈 수 있습니다)")
         col_nav1, col_nav2, col_nav3, col_save = st.columns([1.1, 1.4, 1.3, 0.9])
         
         with col_nav1:
             is_omr = (cur_stage == "OMR")
             omr_label = "1️⃣ OMR 마킹" + (" (현재)" if is_omr else "")
-            if st.button(omr_label, type="primary" if is_omr else "secondary", use_container_width=True):
+            if st.button(omr_label, type="primary" if is_omr else "secondary", use_container_width=True, help="1단계: 시험지 선택 및 OMR 상태 체크"):
                 st.session_state.student_stage = "OMR"
                 save_current_student_progress()
                 st.rerun()
@@ -177,8 +216,8 @@ def render_stage_navigation_bar():
             is_interview = (cur_stage == "INTERVIEW")
             stat_text = f" ({done_vuln}/{total_vuln} 완료)" if total_vuln > 0 else ""
             btn_label = f"2️⃣ 사고 복원{stat_text}" + (" (현재)" if is_interview else "")
-            can_go_interview = (total_vuln > 0)
-            if st.button(btn_label, type="primary" if is_interview else "secondary", disabled=not can_go_interview, use_container_width=True):
+            can_go_interview = (total_vuln > 0 or is_interview)
+            if st.button(btn_label, type="primary" if is_interview else "secondary", disabled=not can_go_interview, use_container_width=True, help="2단계: 1:1 취약 문항 사고 복원 인터뷰"):
                 st.session_state.student_stage = "INTERVIEW"
                 save_current_student_progress()
                 st.rerun()
@@ -187,7 +226,7 @@ def render_stage_navigation_bar():
             is_report = (cur_stage == "REPORT")
             btn_label = "3️⃣ 리포트 & 방어훈련" + (" (현재)" if is_report else "")
             can_go_report = (done_vuln > 0 or cur_stage == "REPORT")
-            if st.button(btn_label, type="primary" if is_report else "secondary", disabled=not can_go_report, use_container_width=True):
+            if st.button(btn_label, type="primary" if is_report else "secondary", disabled=not can_go_report, use_container_width=True, help="3단계: 종합 진단 리포트 및 AI 맞춤 기출 방어 훈련"):
                 st.session_state.student_stage = "REPORT"
                 save_current_student_progress()
                 st.rerun()
@@ -195,9 +234,9 @@ def render_stage_navigation_bar():
         with col_save:
             if st.button("💾 저장 후 멈춤", help="현재까지의 진행 상황을 저장해 두고, 나중에 이어서 풀 수 있습니다.", use_container_width=True):
                 save_current_student_progress()
-                st.toast("✅ 현재까지의 학습 진행 상태가 안전하게 저장되었습니다! 다음에 로그인 시 바로 이어서 하실 수 있습니다.")
+                st.toast("✅ 현재까지의 학습 진행 상태가 안전하게 저장되었습니다! 다음에 로그인 시 바로 이어서 하실 수 있습니다.", icon="💾")
 
-    st.divider()
+    st.write("")
 
 # ==========================================
 # 1. 학생 로그인 뷰
@@ -205,7 +244,7 @@ def render_stage_navigation_bar():
 def render_student_login():
     st.markdown("""
     <div style="text-align: center; margin-top: 2rem; margin-bottom: 2rem;">
-        <h1 style="color: #0f172a;">🧠 수능 국어 사고 복원 클리닉</h1>
+        <h1 style="color: #0f172a;">🎯 수능 국어 사고 복원 클리닉</h1>
         <p style="color: #64748b; font-size: 1.1rem;">
             오답을 단순히 외우지 않고, <b>시험장 당시 나의 왜곡된 사고 경로</b>를 복원하여 평가원의 함정을 깨뜨립니다.
         </p>
@@ -263,7 +302,8 @@ def render_student_login():
             st.caption("💡 테스트용 기본 계정: 학번 `30101`, 이름 `김수험`, 비밀번호 `1234`")
             
             st.write("")
-            if st.button("🔒 교사용 관리자 모드로 전환", key="btn_switch_admin", use_container_width=True):
+            if st.button("🔒 선생님 관리자 페이지 (?mode=admin)", key="btn_switch_admin", use_container_width=True):
+                st.query_params["mode"] = "admin"
                 st.session_state.app_mode = "ADMIN"
                 st.rerun()
 
@@ -366,7 +406,7 @@ def render_student_mypage():
                 st.markdown("##### 🔍 문항별 정밀 복원 기록:")
                 for d in s.get("diagnosed_items", []):
                     st.markdown(f"**[{d.get('q_num')}번 문항]** (내 선택: {d.get('my_pick')}번 | 오류 태그: `{d.get('error_tag')}`)")
-                    st.markdown(f"- 🧠 **내 당시 사고 과정:** {d.get('student_thought')}")
+                    st.markdown(f"- 💭 **내 당시 사고 과정:** {d.get('student_thought')}")
                     st.markdown(f"- 😈 **평가원 함정 설계:** {d.get('evaluator_trap')}")
                     st.markdown(f"- 💡 **실전 행동 원칙:** *{d.get('action_rule')}*")
                     st.write("")
@@ -393,7 +433,6 @@ def render_student_mypage():
 # ==========================================
 def render_omr_stage():
     student = st.session_state.auth_student
-    st.markdown(f"### 👋 반가워요, **{student['name']}** ({student['student_id']}) 학생!")
     
     # 이전 저장된 진행 상태가 있는 경우 알림 및 이어하기 배너 제공
     saved_prog = get_student_progress(student["student_id"])
@@ -426,10 +465,15 @@ def render_omr_stage():
         st.info(f"💡 **누적 취약점 경보**: 지난 진단에서 {top_tags_text} 패턴이 자주 감지되었습니다. 이번 시험지에서도 비슷한 사고 왜곡이 발생하지 않았는지 주의 깊게 복기해 보세요!")
 
     st.markdown("""
-    오프라인에서 시간 맞춰 푼 시험지를 책상 위에 펼쳐놓으세요.  
-    **모든 문제를 다 대화할 필요는 없습니다.** `확신`하고 맞힌 문제는 자동으로 건너뛰고,  
-    **`확신 없는 정답`, `오답`, `시간부족/찍음`**으로 체크된 문제들만 AI와 1:1로 사고 복원을 진행합니다.
-    """)
+    <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 12px 16px; border-radius: 6px; margin-bottom: 1.2rem;">
+        <b style="color: #1e293b; font-size: 1.05rem;">📝 1단계: 시험지 선택 및 OMR 풀이 상태 마킹</b>
+        <p style="color: #475569; margin: 4px 0 0 0; font-size: 0.93rem;">
+            오프라인에서 시간 맞춰 푼 시험지를 책상 위에 펼쳐놓으세요.<br>
+            <b>모든 문제를 다 대화할 필요는 없습니다.</b> <code>확신</code>하고 맞힌 문제는 자동으로 건너뛰고, 
+            <b><code>확신 없는 정답</code>, <code>오답</code>, <code>시간부족/찍음</code></b>으로 체크된 문제들만 AI와 1:1 사고 복원을 진행합니다.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
     exams = get_exams()
     exam_options = list(exams.keys())
@@ -694,7 +738,7 @@ def render_interview_stage(client):
         profile = get_student_vulnerability_profile(student["student_id"])
         if profile.get("has_history") and profile.get("top_vulnerabilities"):
             top_str = ", ".join([t[0] for t in profile["top_vulnerabilities"][:2]])
-            caption_base += f" | 🧠 *과거 취약점 연동: {top_str}*"
+            caption_base += f" | 🔍 *과거 취약점 연동: {top_str}*"
         st.caption(caption_base)
     with col_stat2:
         if st.button("⏹️ OMR로 돌아가기", use_container_width=True):
@@ -939,7 +983,7 @@ def render_interview_stage(client):
             res = st.session_state.current_analysis
             st.success(f"🎉 **{q_num}번 문항** 사고 복원 완료!")
             
-            st.markdown(f"**🧠 복원된 나의 사고**\n> *\"{res['student_thought']}\"*")
+            st.markdown(f"**💭 복원된 나의 사고**\n> *\"{res['student_thought']}\"*")
             st.markdown(f"**🚨 사고 오류 태그:** `{res['error_tag']}`")
             st.markdown(f"**😈 평가원의 함정 설계:** {res['evaluator_trap']}")
             st.markdown(f"**💡 나만의 행동 원칙:** *{res['action_rule']}*")
@@ -1178,7 +1222,7 @@ def render_report_stage(client):
     st.subheader("📝 문항별 복원된 나의 사고 & 행동 원칙 총정리")
     for item in diagnosed:
         with st.expander(f"📌 {item['q_num']}번 문항 (선택: {item['my_pick']}번 | 태그: {item['error_tag']})"):
-            st.markdown(f"**🧠 나의 사고 과정:** {item['student_thought']}")
+            st.markdown(f"**💭 나의 사고 과정:** {item['student_thought']}")
             st.markdown(f"**😈 평가원 함정 구조:** {item['evaluator_trap']}")
             st.info(f"**💡 행동 원칙:** {item['action_rule']}")
 
