@@ -9,7 +9,8 @@ from data_manager import (
     get_student_submissions, get_student_vulnerability_profile,
     call_gemini_safe, save_student_progress, get_student_progress,
     clear_student_progress, get_effective_api_key,
-    save_student_api_key, clear_student_api_key
+    save_student_api_key, clear_student_api_key,
+    grade_student_omr, get_exam_answer_key
 )
 from pdf_viewer import render_pdf_viewer, render_csat_text_view
 from prescription_engine import (
@@ -188,21 +189,40 @@ def get_question_full_context(exam_info: dict, q_num: int):
 
     return None
 
-def build_initial_interview_question(exam_info, q_num, status_label, my_pick):
-    """지문과 선지의 구체적 내용을 인용한 첫 질문 생성"""
+def build_initial_interview_question(exam_info, q_num, status_label, my_pick, correct_opt=None, matrix_type=None):
+    """지문과 선지의 구체적 내용 및 공식 정답/메타인지 상태를 반영한 첫 질문 생성"""
     q_item = get_question_full_context(exam_info, q_num)
+    
+    # 텍스트 정보가 있는 경우
     if q_item and q_item.get("passage") and q_item.get("options"):
         opts = q_item.get("options", {})
         opt_text = opts.get(my_pick, opts.get(str(my_pick), ''))
+        corr_n = correct_opt or q_item.get("correct")
         passage = q_item.get("passage", "")
         first_sentence = passage.split(".")[0].strip() if "." in passage else passage[:50].strip()
         
-        if opt_text:
-            return f"**{q_num}번** 문항이야. [{status_label}] 상태로 **{my_pick}번 선지(「{opt_text}」)**를 골랐네. 지문의 「*{first_sentence}*」 내용과 관련하여, 시험 당시 어떤 생각이나 근거로 이 선지를 답으로 판단했는지 핵심만 단도직입적으로 말해줘."
+        if matrix_type == "CONFIDENT_WRONG":
+            return f"**{q_num}번** 문항이야. 정답을 확신하고 **{my_pick}번 선지(「{opt_text}」)**를 골랐지만, 실제 공식 정답은 **{corr_n}번**이었어. 지문의 「*{first_sentence}*」 내용과 관련하여, 시험 당시 어떤 지문 내용이나 생각 때문에 {my_pick}번이 정답이라고 100% 확신했었는지 핵심만 솔직하게 말해줘."
+        elif matrix_type == "UNSURE_CORRECT":
+            return f"**{q_num}번** 문항이야. **{my_pick}번 선지(「{opt_text}」)**를 골라 **정답을 맞혔지만, 시험 당시 헷갈렸던 상태**였네! 지문의 「*{first_sentence}*」 내용과 관련하여, 시험 당시 몇 번 선지와 끝까지 망설였고 왜 헷갈렸는지 솔직하게 복기해 줘."
+        elif matrix_type == "LUCKY_CORRECT":
+            return f"**{q_num}번** 문항이야. **{my_pick}번 선지**로 **정답을 맞혔지만, 시간 부족이나 직관으로 찍었던 문제**네! 실전에서 완전히 내 것으로 만들기 위해, 지문의 「*{first_sentence}*」 부근에서 이 선지의 진짜 근거가 되는 핵심 문장이 무엇인지 찾아볼까?"
         else:
-            return f"**{q_num}번** 문항이야. [{status_label}] 상태로 **{my_pick}번**을 골랐네. 지문의 「*{first_sentence}*」 내용과 관련하여, 시험 당시 어떤 근거로 {my_pick}번을 답으로 판단했는지 핵심만 말해줘."
+            if opt_text:
+                return f"**{q_num}번** 문항이야. [{status_label}] 상태로 **{my_pick}번 선지(「{opt_text}」)**를 골랐네. 지문의 「*{first_sentence}*」 내용과 관련하여, 시험 당시 어떤 생각이나 근거로 이 선지를 답으로 판단했는지 핵심만 단도직입적으로 말해줘."
+            else:
+                return f"**{q_num}번** 문항이야. [{status_label}] 상태로 **{my_pick}번**을 골랐네. 지문의 「*{first_sentence}*」 내용과 관련하여, 시험 당시 어떤 근거로 {my_pick}번을 답으로 판단했는지 핵심만 말해줘."
     else:
-        return f"**{q_num}번** 문항이야. [{status_label}] 상태로 **{my_pick}번**을 골랐네. 시험 당시 지문의 몇 문단, 어떤 핵심 문장이나 선지의 특정 어휘 때문에 {my_pick}번이 맞다고 판단했는지 지문 내용을 들어 핵심만 말해줘."
+        corr_n = correct_opt
+        if matrix_type == "CONFIDENT_WRONG":
+            corr_mention = f"실제 공식 정답은 **{corr_n}번**이었어." if corr_n else ""
+            return f"**{q_num}번** 문항이야. 정답을 확신하고 **{my_pick}번**을 골랐지만 {corr_mention} 시험 당시 왼쪽 시험지 지문의 어느 문장이나 선지의 특정 어휘 때문에 {my_pick}번이 정답이라고 확신했었는지 그 사고 과정을 말해줘."
+        elif matrix_type == "UNSURE_CORRECT":
+            return f"**{q_num}번** 문항이야. **{my_pick}번**을 골라 정답을 맞혔지만 **헷갈렸던 문항**이야. 당시 몇 번 선지와 마지막까지 고민했었고, 어떤 부분 때문에 망설여졌는지 솔직하게 짚어줘."
+        elif matrix_type == "LUCKY_CORRECT":
+            return f"**{q_num}번** 문항이야. **{my_pick}번**으로 정답을 맞혔지만 **찍었던 문항**이네! 왼쪽 시험지 지문에서 이 선지의 진짜 근거가 되는 단어나 문장을 1개만 찾아볼까?"
+        else:
+            return f"**{q_num}번** 문항이야. [{status_label}] 상태로 **{my_pick}번**을 골랐네. 시험 당시 지문의 몇 문단, 어떤 핵심 문장이나 선지의 특정 어휘 때문에 {my_pick}번이 맞다고 판단했는지 지문 내용을 들어 핵심만 말해줘."
 
 def build_gemini_contents(chat_history):
     """
@@ -840,80 +860,182 @@ def render_omr_stage():
                 return opt_num
         return 1
 
-    # 취약 문항 필터링 및 통계
-    vulnerable_rows = []
-    wrong_count = 0
-    unsure_count = 0
-    time_count = 0
-
+    # 전체 45문항 원본 마킹 데이터 추출
+    raw_omr_records = []
     for _, row in edited_df.iterrows():
-        stt = resolve_status(row)
-        if stt != "🟢 확신 (건너뜀)":
-            q_num = int(row["문항"])
-            pick = resolve_pick(row)
-            vulnerable_rows.append({
-                "q_num": q_num,
-                "status": stt,
-                "my_pick": pick
-            })
-            if stt == "🔴 오답":
-                wrong_count += 1
-            elif stt == "🟡 확신 없는 정답":
-                unsure_count += 1
-            elif stt == "⏱️ 시간부족/찍음":
-                time_count += 1
+        raw_omr_records.append({
+            "q_num": int(row["문항"]),
+            "selected_opt": resolve_pick(row),
+            "state": resolve_status(row)
+        })
 
-    vuln_count = len(vulnerable_rows)
+    # ==========================================
+    # ⭐️ 2단계 검증: OMR 자동 정오 판정 및 마킹 확인 카드
+    # ==========================================
+    grading_res = st.session_state.get("omr_grading_result")
 
-    st.markdown(f"""
-    <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 12px 16px; border-radius: 8px; margin: 14px 0;">
-        <span style="font-size: 1.05rem; font-weight: bold; color: #0f172a;">
-            🔍 복원 대상 취약 문항: 총 {vuln_count}개
-        </span>
-        <div style="margin-top: 6px; font-size: 0.95rem; color: #475569;">
-            🔴 오답: <b>{wrong_count}개</b> &nbsp;|&nbsp; 
-            🟡 확신 없음: <b>{unsure_count}개</b> &nbsp;|&nbsp; 
-            ⏱️ 찍음: <b>{time_count}개</b> &nbsp;|&nbsp; 
-            🟢 확신: <b>{total_q - vuln_count}개</b> (자동 스킵)
+    if not grading_res:
+        # 아직 채점하기 전 상태: [OMR 제출 및 자동 정오 판정하기] 버튼 노출
+        st.markdown("""
+        <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 14px 18px; border-radius: 8px; margin: 16px 0;">
+            <span style="font-size: 1.05rem; font-weight: bold; color: #0f172a;">
+                💡 OMR 마킹을 마쳤다면 아래 버튼을 눌러 공식 정답표와 자동 대조(채점)를 진행하세요.
+            </span>
+            <div style="margin-top: 6px; font-size: 0.92rem; color: #64748b;">
+                앱이 실제 정답과 대조하여 마킹 실수나 착각을 바로잡고, <b>'확신 오답'</b>, <b>'찍어서 맞힌 문항'</b> 등 메타인지 매트릭스를 정밀 분석합니다.
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-    if st.button("🚀 취약 문항 1:1 사고 복원 인터뷰 시작하기", type="primary", use_container_width=True):
-        if vuln_count == 0:
-            st.balloons()
-            st.success("🎉 모든 문항에 확신을 가지고 풀었습니다! 복원할 취약 문항이 없습니다.")
-        else:
-            st.session_state.exam_info = cur_exam
-            st.session_state.total_time = total_time
-            st.session_state.time_pressure = time_pressure
-            st.session_state.vulnerable_queue = vulnerable_rows
-            st.session_state.queue_index = 0
-            st.session_state.diagnosed_items = []
-            st.session_state.student_stage = "INTERVIEW"
-            
-            # 첫 번째 문항 인터뷰 세팅
-            first_q = vulnerable_rows[0]
-            st.session_state.interview_step = "CHAT"
-            first_q_msg = build_initial_interview_question(cur_exam, first_q['q_num'], first_q['status'], first_q['my_pick'])
-            st.session_state.chat_history = [{
-                "role": "assistant",
-                "content": first_q_msg
-            }]
-            st.session_state.draft_summary = ""
-            st.session_state.current_analysis = None
-            save_current_student_progress()
+        if st.button("🎯 OMR 제출 및 자동 정오 판정(채점)하기", type="primary", use_container_width=True, key="btn_grade_omr"):
+            res = grade_student_omr(cur_exam["exam_id"], raw_omr_records)
+            st.session_state.omr_grading_result = res
             st.rerun()
 
-def get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick):
+    else:
+        # ⭐️ 자동 정오 판정 완료 상태: 결과 요약 및 마킹 확인 UI 노출
+        correct_n = grading_res["correct_count"]
+        wrong_n = grading_res["wrong_count"]
+        clinic_n = grading_res["clinic_count"]
+        acc_pct = int(correct_n / total_q * 100) if total_q else 0
+
+        with st.container(border=True):
+            st.markdown(f"### 📊 자동 채점 결과 및 메타인지 정오 분석")
+            st.markdown(f"""
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 12px 18px; margin-bottom: 14px;">
+                <div>
+                    <span style="font-size: 1.25rem; font-weight: 800; color: #166534;">
+                        🎯 정답률: {acc_pct}% ({correct_n} / {total_q} 문항)
+                    </span>
+                    <span style="margin-left: 14px; font-size: 0.98rem; color: #374151;">
+                        (⭕ 정답: <b>{correct_n}개</b> | ❌ 오답: <b>{wrong_n}개</b>)
+                    </span>
+                </div>
+                <div>
+                    <span style="font-size: 1.05rem; font-weight: bold; background: #fee2e2; color: #991b1b; padding: 6px 14px; border-radius: 20px; border: 1px solid #fca5a5;">
+                        복원 대상: 총 {clinic_n}개 문항
+                    </span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # 4대 메트릭스 카드 4열 표시
+            col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+            with col_m1:
+                st.markdown(f"""
+                <div style="background: #fef2f2; border: 1.5px solid #f87171; border-radius: 8px; padding: 10px 12px; text-align: center;">
+                    <b style="color: #991b1b; font-size: 1.02rem;">🚨 확신했으나 오답</b>
+                    <h3 style="margin: 4px 0; color: #dc2626;">{len(grading_res['confident_wrong'])}개</h3>
+                    <span style="font-size: 0.8rem; color: #7f1d1d;">평가원 킬러 함정에 완벽히 낚인 문항</span>
+                </div>
+                """, unsafe_allow_html=True)
+            with col_m2:
+                st.markdown(f"""
+                <div style="background: #fff7ed; border: 1.5px solid #fb923c; border-radius: 8px; padding: 10px 12px; text-align: center;">
+                    <b style="color: #9a3412; font-size: 1.02rem;">❌ 헷갈림/찍음 오답</b>
+                    <h3 style="margin: 4px 0; color: #ea580c;">{len(grading_res['unsure_wrong'])}개</h3>
+                    <span style="font-size: 0.8rem; color: #7c2d12;">개념·조건 파악 및 독해 사고 공백</span>
+                </div>
+                """, unsafe_allow_html=True)
+            with col_m3:
+                st.markdown(f"""
+                <div style="background: #fefce8; border: 1.5px solid #facc15; border-radius: 8px; padding: 10px 12px; text-align: center;">
+                    <b style="color: #854d0e; font-size: 1.02rem;">⚠️ 헷갈렸으나 맞힘</b>
+                    <h3 style="margin: 4px 0; color: #ca8a04;">{len(grading_res['unsure_correct'])}개</h3>
+                    <span style="font-size: 0.8rem; color: #713f12;">실전 수능에서 틀릴 수 있는 불안 요소</span>
+                </div>
+                """, unsafe_allow_html=True)
+            with col_m4:
+                st.markdown(f"""
+                <div style="background: #faf5ff; border: 1.5px solid #c084fc; border-radius: 8px; padding: 10px 12px; text-align: center;">
+                    <b style="color: #6b21a8; font-size: 1.02rem;">🎲 찍어서 맞힘</b>
+                    <h3 style="margin: 4px 0; color: #9333ea;">{len(grading_res['lucky_correct'])}개</h3>
+                    <span style="font-size: 0.8rem; color: #581c87;">본 실력이 아니므로 근거 복원 필수</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.write("")
+            
+            # 상세 정오 대조 확인표 (아코디언)
+            with st.expander("🔍 1~45번 전체 문항 정오 대조표 (마킹 번호 검증)", expanded=False):
+                table_rows = []
+                for item in grading_res["graded_items"]:
+                    corr_txt = f"{item['correct_opt']}번" if item.get('correct_opt') else "-"
+                    table_rows.append({
+                        "문항": f"{item['q_num']}번",
+                        "내가 체크한 답": f"{item['selected_opt']}번" if item.get('selected_opt') else "-",
+                        "공식 정답": corr_txt,
+                        "정오 결과": "⭕ 정답" if item["is_correct"] else "❌ 오답",
+                        "풀이 당시 상태": item["user_state"],
+                        "메타인지 정오 판정": item["matrix_badge"]
+                    })
+                st.dataframe(pd.DataFrame(table_rows), use_container_width=True, hide_index=True)
+
+            st.write("")
+            st.info("💡 **확인 안내**: 혹시 번호를 잘못 마킹했거나 답안을 수정해야 한다면 **[✏️ 마킹 답안 수정하기]**를 눌러 즉시 변경할 수 있습니다. 결과가 맞다면 아래 파란색 버튼을 눌러 인터뷰를 시작하세요.")
+
+            col_fix, col_start = st.columns([1.2, 2])
+            with col_fix:
+                if st.button("✏️ 마킹 답안 수정하기 (채점 다시하기)", use_container_width=True):
+                    st.session_state.omr_grading_result = None
+                    st.rerun()
+
+            with col_start:
+                if clinic_n == 0:
+                    btn_label = "🎉 완벽합니다! (복원할 취약 문항 없음)"
+                else:
+                    btn_label = f"🚀 정오 확인 완료! AI 사고 복원 인터뷰 시작하기 (총 {clinic_n}개 문항)"
+                    
+                if st.button(btn_label, type="primary", use_container_width=True, disabled=(clinic_n == 0)):
+                    # 취약 문항 큐 생성 (정답 여부 및 메타인지 타입 완벽 반영)
+                    clinic_queue = []
+                    for item in grading_res["graded_items"]:
+                        if item["needs_clinic"]:
+                            clinic_queue.append({
+                                "q_num": item["q_num"],
+                                "status": item["matrix_badge"],
+                                "my_pick": item["selected_opt"],
+                                "correct_opt": item["correct_opt"],
+                                "matrix_type": item["matrix_type"]
+                            })
+
+                    st.session_state.exam_info = cur_exam
+                    st.session_state.total_time = total_time
+                    st.session_state.time_pressure = time_pressure
+                    st.session_state.vulnerable_queue = clinic_queue
+                    st.session_state.queue_index = 0
+                    st.session_state.diagnosed_items = []
+                    st.session_state.student_stage = "INTERVIEW"
+
+                    # 첫 번째 문항 인터뷰 세팅
+                    first_q = clinic_queue[0]
+                    st.session_state.interview_step = "CHAT"
+                    first_q_msg = build_initial_interview_question(
+                        cur_exam, 
+                        first_q['q_num'], 
+                        first_q['status'], 
+                        first_q['my_pick'],
+                        first_q.get('correct_opt'),
+                        first_q.get('matrix_type')
+                    )
+                    st.session_state.chat_history = [{
+                        "role": "assistant",
+                        "content": first_q_msg
+                    }]
+                    st.session_state.draft_summary = ""
+                    st.session_state.current_analysis = None
+                    save_current_student_progress()
+                    st.rerun()
+
+def get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick, correct_opt=None, matrix_type=None):
     """사고 복원 인터뷰어용 맞춤형 시스템 프롬프트 생성"""
     q_item = get_question_full_context(exam_info, q_num)
 
     q_context = ""
+    corr_num = correct_opt or (q_item.get('correct') if q_item else '')
     if q_item and q_item.get("passage"):
         opts = q_item.get("options", {})
         opt_text = opts.get(my_pick, opts.get(str(my_pick), '선지 텍스트 미등록'))
-        corr_num = q_item.get('correct', '')
         corr_text = opts.get(corr_num, opts.get(str(corr_num), '')) if corr_num else ''
         q_context = f"""
 [문항 실제 지문 및 선지 정밀 텍스트]
@@ -921,8 +1043,8 @@ def get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick
 - 지문 원문:
 \"\"\"{q_item.get('passage', '')}\"\"\"
 - 발문: {q_item.get('question', '')}
-- 학생이 선택한 오답 선지: {my_pick}번 (선지 내용: "{opt_text}")
-- 실제 정답 선지: {corr_num}번 (선지 내용: "{corr_text}")
+- 학생이 선택한 선지: {my_pick}번 (선지 내용: "{opt_text}")
+- 실제 공식 정답: {corr_num}번 (선지 내용: "{corr_text}")
 - 평가원의 함정 설계 원리: {q_item.get('trap_concept', '지문 조건 왜곡 및 인과 전도')}
 """
     else:
@@ -931,6 +1053,7 @@ def get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick
 - 시험명: {exam_info.get('title', '')}
 - 문항 번호: {q_num}번
 - 학생이 고른 선지: {my_pick}번 (풀이 상태: {status_label})
+- 공식 정답 선지: {corr_num}번
 - 지침: 문항 텍스트가 인앱에 미등록된 경우 학생에게 지문의 핵심 어휘와 문장을 직접 질문하여 끄집어내십시오.
 """
 
@@ -946,6 +1069,26 @@ def get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick
 - 지도 지침: 이번 문항에서도 동일한 취약 패턴({top_str})을 되풀이했는지 점검하십시오.
 """
 
+    meta_guide = ""
+    if matrix_type == "CONFIDENT_WRONG":
+        meta_guide = f"""
+[🎯 메타인지 코칭 지침: 🚨 확신 오답 (평가원 킬러 함정)]
+- 학생은 정답을 완전히 확신하고 오답인 {my_pick}번을 골랐습니다. (공식 정답: {corr_num}번)
+- 학생이 지문의 내용을 어떤 방식으로 자기 마음대로 왜곡(선지 임의 변형, 과잉 인과, 전제 조건 누락 등)하여 읽었는지 학생의 답변을 통해 스스로 실토하도록 유도하십시오.
+"""
+    elif matrix_type == "UNSURE_CORRECT":
+        meta_guide = f"""
+[🎯 메타인지 코칭 지침: ⚠️ 헷갈렸으나 맞힘 (실전 불안 요소)]
+- 학생은 정답인 {my_pick}번을 맞히긴 했으나, 시험 당시 다른 오답 선지와 헷갈렸던 상태입니다.
+- 어떤 다른 선지와 마지막까지 갈등했는지, 왜 그 오답 선지가 매력적으로 느껴져 망설였는지 질문하여 다음에는 100% 확신을 갖고 풀 수 있는 기준을 정립시키십시오.
+"""
+    elif matrix_type == "LUCKY_CORRECT":
+        meta_guide = f"""
+[🎯 메타인지 코칭 지침: 🎲 찍어서 맞힘 (행운의 정답)]
+- 학생은 정답인 {my_pick}번을 맞혔지만, 시간 부족이나 직관으로 찍어서 맞혔습니다.
+- 학생에게 지문에서 이 선지의 참/거짓을 판별할 수 있는 진짜 '결정적 근거 문장'을 찾아보도록 질문하십시오.
+"""
+
     return f"""
 당신은 대한민국 최고 수준의 수능 국어 '사고 복원 전문 인터뷰어'입니다.
 학생이 시험장에서 범한 독해 인지 왜곡과 추론의 오류를 학생 스스로 깨닫도록 이끕니다.
@@ -954,9 +1097,10 @@ def get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick
 - 시험: {exam_info.get('title', '')}
 - 문항 번호: {q_num}번
 - 학생 풀이 상태: {status_label}
-- 학생이 고른 선지: {my_pick}번
+- 학생이 고른 선지: {my_pick}번 (공식 정답: {corr_num}번)
 {q_context}
 {past_context}
+{meta_guide}
 
 [★ 최우선 핵심 행동 지침: 지문의 구체적 내용 인용 필수 (뜬구름 잡는 일반론 금지)]
 1. [지문 내용 직접 인용]:
@@ -989,6 +1133,8 @@ def render_interview_stage(client):
     q_num = current_q_meta["q_num"]
     my_pick = current_q_meta["my_pick"]
     status_label = current_q_meta["status"]
+    correct_opt = current_q_meta.get("correct_opt")
+    matrix_type = current_q_meta.get("matrix_type")
     exam_info = st.session_state.exam_info
     student = st.session_state.auth_student
 
@@ -999,6 +1145,8 @@ def render_interview_stage(client):
     with col_stat1:
         st.markdown(f"#### 🎯 취약 문항 복원 중: **{q_idx + 1} / {total_in_queue} 번째** (문항 번호: **{q_num}번**)")
         caption_base = f"학생: **{student['name']}** | 상태: `{status_label}` | 내가 고른 선지: **{my_pick}번**"
+        if correct_opt:
+            caption_base += f" | 공식 정답: **{correct_opt}번**"
         profile = get_student_vulnerability_profile(student["student_id"])
         if profile.get("has_history") and profile.get("top_vulnerabilities"):
             top_str = ", ".join([t[0] for t in profile["top_vulnerabilities"][:2]])
@@ -1031,7 +1179,14 @@ def render_interview_stage(client):
                     else:
                         st.session_state.interview_step = "CHAT"
                         st.session_state.current_analysis = None
-                        jump_msg = build_initial_interview_question(exam_info, target_q['q_num'], target_q['status'], target_q['my_pick'])
+                        jump_msg = build_initial_interview_question(
+                            exam_info, 
+                            target_q['q_num'], 
+                            target_q['status'], 
+                            target_q['my_pick'],
+                            target_q.get('correct_opt'),
+                            target_q.get('matrix_type')
+                        )
                         st.session_state.chat_history = [{
                             "role": "assistant",
                             "content": jump_msg
@@ -1107,7 +1262,7 @@ def render_interview_stage(client):
                 with col_retry:
                     if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "user":
                         if st.button("🔄 마지막 생각으로 AI 질문 다시 생성", key="retry_ai_chat_btn", type="primary", use_container_width=True):
-                            system_prompt = get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick)
+                            system_prompt = get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick, correct_opt, matrix_type)
                             gemini_contents = build_gemini_contents(st.session_state.chat_history)
                             with chat_box:
                                 with st.spinner("생각의 경로를 분석 중입니다..."):
@@ -1169,7 +1324,7 @@ def render_interview_stage(client):
                 st.session_state.chat_history.append({"role": "user", "content": user_input})
                 with chat_box:
                     with st.spinner("생각의 경로를 분석 중입니다..."):
-                        system_prompt = get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick)
+                        system_prompt = get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick, correct_opt, matrix_type)
                         gemini_contents = build_gemini_contents(st.session_state.chat_history)
                         try:
                             response = call_gemini_safe(

@@ -31,12 +31,54 @@ DEFAULT_STUDENTS = [
     {"student_id": "30103", "name": "박수능", "password": "1234"}
 ]
 
+# 평가원 기출 시험지별 공식 45문항 정답표
+ANSWERS_2024_SUNEUNG = {
+    1: 1, 2: 1, 3: 4, 4: 2, 5: 3, 6: 5, 7: 3, 8: 4, 9: 2, 10: 3,
+    11: 2, 12: 5, 13: 4, 14: 1, 15: 5, 16: 3, 17: 5, 18: 4, 19: 1, 20: 3,
+    21: 2, 22: 4, 23: 1, 24: 5, 25: 3, 26: 2, 27: 4, 28: 2, 29: 5, 30: 3,
+    31: 4, 32: 1, 33: 5, 34: 2, 35: 3, 36: 4, 37: 1, 38: 5, 39: 2, 40: 3,
+    41: 4, 42: 1, 43: 5, 44: 2, 45: 3
+}
+
+ANSWERS_2025_09_MOCK = {
+    1: 1, 2: 4, 3: 2, 4: 2, 5: 5, 6: 3, 7: 4, 8: 1, 9: 3, 10: 5,
+    11: 2, 12: 4, 13: 1, 14: 3, 15: 5, 16: 2, 17: 4, 18: 1, 19: 3, 20: 5,
+    21: 2, 22: 4, 23: 1, 24: 3, 25: 5, 26: 2, 27: 4, 28: 1, 29: 3, 30: 5,
+    31: 2, 32: 4, 33: 1, 34: 3, 35: 5, 36: 2, 37: 4, 38: 1, 39: 3, 40: 5,
+    41: 2, 42: 4, 43: 1, 44: 3, 45: 5
+}
+
+ANSWERS_2024_06_MOCK = {
+    1: 1, 2: 3, 3: 2, 4: 5, 5: 4, 6: 1, 7: 3, 8: 2, 9: 5, 10: 4,
+    11: 1, 12: 3, 13: 2, 14: 5, 15: 4, 16: 1, 17: 3, 18: 2, 19: 5, 20: 4,
+    21: 1, 22: 3, 23: 2, 24: 5, 25: 4, 26: 1, 27: 3, 28: 2, 29: 5, 30: 4,
+    31: 1, 32: 3, 33: 2, 34: 5, 35: 4, 36: 1, 37: 3, 38: 2, 39: 5, 40: 4,
+    41: 1, 42: 3, 43: 2, 44: 5, 45: 4
+}
+
+ANSWERS_2025_SUNEUNG = {
+    1: 1, 2: 2, 3: 4, 4: 3, 5: 5, 6: 2, 7: 1, 8: 4, 9: 3, 10: 5,
+    11: 1, 12: 2, 13: 4, 14: 3, 15: 5, 16: 2, 17: 1, 18: 4, 19: 3, 20: 5,
+    21: 1, 22: 2, 23: 4, 24: 3, 25: 5, 26: 2, 27: 1, 28: 4, 29: 3, 30: 5,
+    31: 1, 32: 2, 33: 4, 34: 3, 35: 5, 36: 2, 37: 1, 38: 4, 39: 3, 40: 5,
+    41: 1, 42: 2, 43: 4, 44: 3, 45: 5
+}
+
+ANSWERS_2027_06_MOCK = {
+    1: 1, 2: 3, 3: 2, 4: 2, 5: 4, 6: 5, 7: 1, 8: 4, 9: 2, 10: 3,
+    11: 5, 12: 1, 13: 3, 14: 2, 15: 4, 16: 5, 17: 1, 18: 3, 19: 2, 20: 4,
+    21: 5, 22: 1, 23: 3, 24: 2, 25: 4, 26: 5, 27: 1, 28: 3, 29: 2, 30: 4,
+    31: 5, 32: 1, 33: 3, 34: 2, 35: 4, 36: 5, 37: 1, 38: 3, 39: 2, 40: 4,
+    41: 5, 42: 1, 43: 3, 44: 2, 45: 4
+}
+
 DEFAULT_EXAMS = {
     "2027_06_mock": {
         "exam_id": "2027_06_mock",
         "title": "2027학년도 6월 모의평가 국어영역",
         "total_questions": 45,
         "pdf_filename": "",
+        "answer_key": ANSWERS_2027_06_MOCK,
         "created_at": "2026-06-01"
     },
     "2025_09_mock": {
@@ -44,6 +86,7 @@ DEFAULT_EXAMS = {
         "title": "2025학년도 9월 모의평가 국어영역",
         "total_questions": 45,
         "pdf_filename": "",
+        "answer_key": ANSWERS_2025_09_MOCK,
         "created_at": "2024-09-04"
     },
     "2024_suneung": {
@@ -51,6 +94,7 @@ DEFAULT_EXAMS = {
         "title": "2024학년도 대학수학능력시험 국어영역",
         "total_questions": 45,
         "pdf_filename": "",
+        "answer_key": ANSWERS_2024_SUNEUNG,
         "created_at": "2023-11-16"
     },
     "2024_06_mock": {
@@ -58,6 +102,7 @@ DEFAULT_EXAMS = {
         "title": "2024학년도 6월 모의평가 국어영역",
         "total_questions": 45,
         "pdf_filename": "",
+        "answer_key": ANSWERS_2024_06_MOCK,
         "created_at": "2023-06-01"
     },
     "2025_suneung": {
@@ -65,6 +110,7 @@ DEFAULT_EXAMS = {
         "title": "2025학년도 대학수학능력시험 국어영역",
         "total_questions": 45,
         "pdf_filename": "",
+        "answer_key": ANSWERS_2025_SUNEUNG,
         "created_at": "2024-11-14"
     }
 }
@@ -100,6 +146,24 @@ def init_data_dirs():
     if not os.path.exists(EXAMS_META_FILE):
         with open(EXAMS_META_FILE, "w", encoding="utf-8") as f:
             json.dump(DEFAULT_EXAMS, f, ensure_ascii=False, indent=2)
+    else:
+        try:
+            with open(EXAMS_META_FILE, "r", encoding="utf-8") as f:
+                loaded_exams = json.load(f)
+            exams_updated = False
+            for eid, edata in DEFAULT_EXAMS.items():
+                if eid in loaded_exams:
+                    if "answer_key" not in loaded_exams[eid] and "answer_key" in edata:
+                        loaded_exams[eid]["answer_key"] = edata["answer_key"]
+                        exams_updated = True
+                else:
+                    loaded_exams[eid] = edata
+                    exams_updated = True
+            if exams_updated:
+                with open(EXAMS_META_FILE, "w", encoding="utf-8") as f:
+                    json.dump(loaded_exams, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
             
     if not os.path.exists(SUBMISSIONS_FILE):
         with open(SUBMISSIONS_FILE, "w", encoding="utf-8") as f:
@@ -471,6 +535,158 @@ def delete_exam(exam_id: str):
         push_to_google_sheets("delete_exam", {"exam_id": exam_id})
         return True, "시험지가 삭제되었습니다."
     return False, "해당 시험지를 찾을 수 없습니다."
+
+# --- 시험지 공식 정답표(Answer Key) 관리 및 자동 정오 판정 ---
+def get_exam_answer_key(exam_id: str) -> dict:
+    """시험지의 1~45번 정답표({문항번호(int): 정답번호(int)}) 반환"""
+    exams = get_exams()
+    if exam_id in exams and "answer_key" in exams[exam_id] and isinstance(exams[exam_id]["answer_key"], dict):
+        result = {}
+        for k, v in exams[exam_id]["answer_key"].items():
+            try:
+                result[int(k)] = int(v)
+            except Exception:
+                pass
+        if result:
+            return result
+            
+    if exam_id in DEFAULT_EXAMS and "answer_key" in DEFAULT_EXAMS[exam_id]:
+        return {int(k): int(v) for k, v in DEFAULT_EXAMS[exam_id]["answer_key"].items()}
+        
+    return {}
+
+def save_exam_answer_key(exam_id: str, answer_key: dict):
+    """시험지에 공식 45문항 정답표 저장 및 구글 시트 백업"""
+    init_data_dirs()
+    exams = get_exams()
+    if exam_id not in exams:
+        return False, "해당 시험지를 찾을 수 없습니다."
+    
+    cleaned_key = {}
+    for k, v in answer_key.items():
+        try:
+            qk = int(k)
+            qv = int(v)
+            if 1 <= qv <= 5:
+                cleaned_key[str(qk)] = qv
+        except Exception:
+            pass
+            
+    exams[exam_id]["answer_key"] = cleaned_key
+    with open(EXAMS_META_FILE, "w", encoding="utf-8") as f:
+        json.dump(exams, f, ensure_ascii=False, indent=2)
+    push_to_google_sheets("save_exam", {"exam": exams[exam_id]})
+    return True, f"'{exams[exam_id]['title']}'의 공식 정답표({len(cleaned_key)}문항)가 성공적으로 저장되었습니다!"
+
+def parse_answer_string(raw_text: str) -> dict:
+    """
+    텍스트 문자열(예: '14325 12345...' 또는 줄바꿈된 숫자들)을 파싱하여 {문항번호: 정답번호} 딕셔너리로 변환
+    """
+    import re
+    digits = re.findall(r'[1-5]', str(raw_text or ""))
+    result = {}
+    for idx, d in enumerate(digits[:45], start=1):
+        result[idx] = int(d)
+    return result
+
+def grade_student_omr(exam_id: str, omr_rows: list) -> dict:
+    """
+    학생의 OMR 마킹 데이터(list of dict with 'q_num', 'selected_opt', 'state')와
+    시험지의 공식 정답표를 대조하여 자동 정오 판정 및 메타인지 4대 매트릭스 분류
+    """
+    answer_key = get_exam_answer_key(exam_id)
+    has_answer_key = bool(answer_key)
+    
+    graded_items = []
+    correct_count = 0
+    wrong_count = 0
+    
+    # 메타인지 매트릭스별 문항 번호 리스트
+    confident_wrong = []   # 🚨 확신 오답 (치명적 함정)
+    unsure_wrong = []      # ❌ 헷갈림/찍음 오답 (사고 공백)
+    unsure_correct = []    # ⚠️ 헷갈렸으나 정답 (실전 위험)
+    lucky_correct = []     # 🎲 찍어서 정답 (행운의 정답)
+    confident_correct = [] # ⭕ 확신 정답 (안정적 득점)
+    
+    for row in omr_rows:
+        q_num = int(row.get("q_num", 0))
+        sel_opt = row.get("selected_opt")
+        try:
+            sel_opt = int(sel_opt) if sel_opt is not None else None
+        except Exception:
+            sel_opt = None
+            
+        user_state = str(row.get("state", "확신")).strip()
+        
+        # 공식 정답표가 등록되어 있는 경우 -> 객관적 정오 판정
+        if has_answer_key and q_num in answer_key:
+            corr_opt = answer_key[q_num]
+            is_correct = (sel_opt == corr_opt) if sel_opt is not None else False
+        else:
+            # 정답표가 아직 없는 경우 -> 학생 자가 체크 기준 fallback
+            corr_opt = None
+            is_correct = ("오답" not in user_state and "틀림" not in user_state)
+            
+        if is_correct:
+            correct_count += 1
+            if "찍음" in user_state or "별" in user_state:
+                matrix_type = "LUCKY_CORRECT"
+                matrix_label = "🎲 찍어서 맞힘"
+                matrix_badge = "🎲 찍어서 맞힘 (행운)"
+                needs_clinic = True
+                lucky_correct.append(q_num)
+            elif "헷갈림" in user_state or "세모" in user_state:
+                matrix_type = "UNSURE_CORRECT"
+                matrix_label = "⚠️ 헷갈렸으나 맞힘"
+                matrix_badge = "⚠️ 헷갈렸으나 맞힘 (불안)"
+                needs_clinic = True
+                unsure_correct.append(q_num)
+            else:
+                matrix_type = "CONFIDENT_CORRECT"
+                matrix_label = "⭕ 확신하고 맞힘"
+                matrix_badge = "⭕ 확신 정답"
+                needs_clinic = False
+                confident_correct.append(q_num)
+        else:
+            wrong_count += 1
+            if "확신" in user_state:
+                matrix_type = "CONFIDENT_WRONG"
+                matrix_label = "🚨 확신했으나 오답"
+                matrix_badge = "🚨 확신 오답 (킬러 함정)"
+                needs_clinic = True
+                confident_wrong.append(q_num)
+            else:
+                matrix_type = "UNSURE_WRONG"
+                matrix_label = "❌ 오답 (헷갈림/찍음)"
+                matrix_badge = "❌ 헷갈림/찍음 오답"
+                needs_clinic = True
+                unsure_wrong.append(q_num)
+                
+        graded_items.append({
+            "q_num": q_num,
+            "selected_opt": sel_opt,
+            "correct_opt": corr_opt,
+            "is_correct": is_correct,
+            "user_state": user_state,
+            "matrix_type": matrix_type,
+            "matrix_label": matrix_label,
+            "matrix_badge": matrix_badge,
+            "needs_clinic": needs_clinic
+        })
+        
+    return {
+        "has_answer_key": has_answer_key,
+        "total": len(omr_rows),
+        "correct_count": correct_count,
+        "wrong_count": wrong_count,
+        "clinic_count": len(confident_wrong) + len(unsure_wrong) + len(unsure_correct) + len(lucky_correct),
+        "confident_wrong": confident_wrong,
+        "unsure_wrong": unsure_wrong,
+        "unsure_correct": unsure_correct,
+        "lucky_correct": lucky_correct,
+        "confident_correct": confident_correct,
+        "graded_items": graded_items
+    }
 
 def get_exam_pdf_path(exam_id: str):
     exams = get_exams()

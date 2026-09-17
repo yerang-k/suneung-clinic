@@ -5,6 +5,7 @@ from data_manager import (
     get_admin_config, save_admin_config,
     get_exams, save_exam, get_exam_pdf_base64,
     attach_pdf_to_exam, get_exam_pdf_source, delete_exam,
+    get_exam_answer_key, save_exam_answer_key, parse_answer_string,
     get_submissions, get_student_vulnerability_profile, get_student_submissions,
     sync_from_google_sheets, push_all_to_google_sheets, get_last_sync_time, get_gas_api_url
 )
@@ -183,6 +184,74 @@ def render_admin_dashboard():
                         )
                         st.success(msg)
                         st.rerun()
+
+        # 섹션 2-1: 시험지 공식 정답표(Answer Key) 등록 및 관리
+        with st.container(border=True):
+            st.markdown("##### 🎯 2단계: 시험지 공식 정답표(Answer Key) 등록 및 관리")
+            st.caption("공식 정답표를 등록해 두면, 학생이 OMR을 제출할 때 자동으로 채점되어 '확신 오답', '찍어서 맞힘', '헷갈린 정답' 등 메타인지 매트릭스를 완벽하게 판정합니다.")
+            
+            if exams:
+                ans_target_eid = st.selectbox(
+                    "정답표를 관리할 시험지 선택",
+                    options=list(exams.keys()),
+                    format_func=lambda x: f"{exams[x]['title']} ({exams[x]['total_questions']}문항)",
+                    key="select_exam_for_answer_key"
+                )
+                
+                cur_key = get_exam_answer_key(ans_target_eid)
+                total_q = exams[ans_target_eid].get("total_questions", 45)
+                has_full_key = len(cur_key) >= total_q
+                
+                if has_full_key:
+                    st.success(f"✅ 현재 **{len(cur_key)}/{total_q} 문항**의 공식 정답표가 완벽하게 등록되어 있습니다.")
+                elif cur_key:
+                    st.warning(f"⚠️ 현재 {len(cur_key)}/{total_q} 문항의 정답만 등록되어 있습니다. 나머지 정답을 등록해 주세요.")
+                else:
+                    st.info("💡 아직 공식 정답표가 등록되지 않았습니다. 아래 빠른 입력창으로 3초 만에 등록하세요.")
+
+                # 빠른 정답 붙여넣기 폼
+                with st.form(f"quick_answer_form_{ans_target_eid}"):
+                    # 현재 정답을 5개 단위로 보기 좋게 텍스트로 미리 채워줌
+                    cur_str_parts = []
+                    for i in range(1, total_q + 1):
+                        cur_str_parts.append(str(cur_key.get(i, "")))
+                    preview_raw_str = " ".join([
+                        "".join(cur_str_parts[j:j+5]) for j in range(0, total_q, 5)
+                    ]).strip()
+
+                    raw_answers_input = st.text_area(
+                        "1~45번 정답 빠른 붙여넣기 (공백/줄바꿈 무관, 1~5 숫자 45자리)",
+                        value=preview_raw_str,
+                        placeholder="예: 11423 53423 25415 35413 24153 24253 41523 41523 41523",
+                        help="평가원 정답표의 숫자들을 그대로 복사해 붙여넣으면 공백이나 엔터를 자동으로 제거하고 1~45번 정답으로 저장합니다."
+                    )
+                    
+                    submitted_ans = st.form_submit_button("💾 공식 정답표 자동 파싱 및 저장", type="primary", use_container_width=True)
+                    if submitted_ans:
+                        parsed_dict = parse_answer_string(raw_answers_input)
+                        if len(parsed_dict) == 0:
+                            st.error("입력 내용에서 1~5 사이의 정답 번호를 찾을 수 없습니다.")
+                        else:
+                            ok, msg = save_exam_answer_key(ans_target_eid, parsed_dict)
+                            if ok:
+                                st.success(msg)
+                                st.rerun()
+                            else:
+                                st.error(msg)
+                                
+                # 현재 등록된 정답표를 한눈에 볼 수 있는 아코디언 표
+                if cur_key:
+                    with st.expander("👀 현재 등록된 1~45번 정답표 상세 확인"):
+                        cols_grid = st.columns(5)
+                        for col_idx in range(5):
+                            with cols_grid[col_idx]:
+                                start_q = col_idx * 9 + 1
+                                end_q = min(start_q + 9, total_q + 1)
+                                grid_lines = []
+                                for qn in range(start_q, end_q):
+                                    ans_val = cur_key.get(qn, "-")
+                                    grid_lines.append(f"**{qn}번:** `{ans_val}번`")
+                                st.markdown("<br>".join(grid_lines), unsafe_allow_html=True)
 
         # 섹션 3: 현재 시험지 목록 및 PDF 미리보기
         st.divider()
