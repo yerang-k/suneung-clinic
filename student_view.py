@@ -874,23 +874,31 @@ def render_report_stage(client):
 
             col_train_pdf, col_train_act = st.columns([1.1, 1.1], gap="large")
 
-            # 좌측: 해당 시험지 PDF 원문 뷰어 (해당 문제 페이지로 자동 점프)
+            # 좌측: 해당 시험지 PDF 원문 뷰어 (해당 문제 페이지로 자동 점프) 및 텍스트 탭 제공
             with col_train_pdf:
                 target_path, target_b64, target_url = get_exam_pdf_source(prob["exam_id"])
-                if target_path or target_b64 or target_url:
-                    st.caption(f"📄 원문 시험지 **{prob['page']}페이지**로 자동 이동되었습니다. {prob['q_num']}번 문제를 확인하세요.")
-                    render_pdf_viewer(base64_pdf=target_b64, pdf_url=target_url, pdf_path=target_path, initial_page=prob["page"], height=680)
-                else:
-                    st.warning(f"📄 '{prob['exam_title']}' 원문 PDF가 앱 내에 아직 등록되지 않았습니다.")
-                    if master_drive_url:
-                        st.markdown(f"""
-                        <a href="{master_drive_url}" target="_blank">
-                            <button style="background-color: #0284c7; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; cursor: pointer;">
-                                📂 구글 드라이브에서 '{prob['exam_title']}' 원문 파일 열기 ↗
-                            </button>
-                        </a>
-                        """, unsafe_allow_html=True)
-                    st.info(f"👉 시험지의 **{prob['page']}페이지 {prob['q_num']}번 문항**을 종이 시험지나 구글 드라이브에서 펼쳐주세요.")
+                
+                tab_tr_pdf, tab_tr_text = st.tabs(["📄 시험지 원문 (PDF)", "📝 문항 텍스트 집중 보기"])
+                
+                with tab_tr_pdf:
+                    if target_path or target_b64 or target_url:
+                        st.caption(f"📄 시험지 **{prob['page']}페이지**로 자동 이동되었습니다. {prob['q_num']}번 문제를 확인하세요. (우측은 고정됩니다)")
+                        render_pdf_viewer(base64_pdf=target_b64, pdf_url=target_url, pdf_path=target_path, initial_page=prob["page"], height=580)
+                    else:
+                        st.info(f"선생님의 구글 드라이브 또는 기출 저장소에서 '{prob['exam_title']}' 원문을 연결할 수 있습니다.")
+                        if master_drive_url:
+                            st.markdown(f"""
+                            <a href="{master_drive_url}" target="_blank">
+                                <button style="background-color: #0284c7; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                                    📂 구글 드라이브에서 '{prob['exam_title']}' 원문 파일 열기 ↗
+                                </button>
+                            </a>
+                            """, unsafe_allow_html=True)
+                        st.caption("👉 상단의 [📝 문항 텍스트 집중 보기] 탭을 누르시면 지문과 문제를 즉시 확인하실 수 있습니다.")
+
+                with tab_tr_text:
+                    with st.container(height=580):
+                        render_csat_text_view(prob, my_pick=0, status_tag=f"{prob['year']} {prob['month']} | {prob['genre']}")
 
             # 우측: 방어 미션 수행 및 AI 피드백
             with col_train_act:

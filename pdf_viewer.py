@@ -37,12 +37,21 @@ def get_pdf_bytes_cached(pdf_url: str = None, pdf_path: str = None, base64_pdf: 
         except Exception:
             pass
 
-    if pdf_url and "drive.google.com" in pdf_url:
-        file_id = extract_drive_file_id(pdf_url)
-        if file_id:
+    if pdf_url:
+        if "drive.google.com" in pdf_url:
+            file_id = extract_drive_file_id(pdf_url)
+            if file_id:
+                try:
+                    dl_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+                    resp = requests.get(dl_url, timeout=10)
+                    if resp.status_code == 200 and len(resp.content) > 1000:
+                        return resp.content
+                except Exception:
+                    pass
+        elif pdf_url.startswith("http"):
             try:
-                dl_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-                resp = requests.get(dl_url, timeout=10)
+                headers = {"User-Agent": "Mozilla/5.0"}
+                resp = requests.get(pdf_url, headers=headers, timeout=10)
                 if resp.status_code == 200 and len(resp.content) > 1000:
                     return resp.content
             except Exception:

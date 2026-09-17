@@ -483,15 +483,73 @@ def get_exam_pdf_base64(exam_id: str):
             return None
     return None
 
+# ----------------------------------------------------
+# 최근 3개년 평가원 기출 모의고사 정식 공개 PDF 프리셋
+# 교사가 별도로 PDF를 등록하지 않아도 인앱에서 즉시 열람 가능
+# ----------------------------------------------------
+KICE_PAST_EXAMS_PRESETS = {
+    "2025_suneung": {
+        "title": "2025학년도 대학수학능력시험 국어영역",
+        "pdf_url": "https://wdown.ebsi.co.kr/wdown/exam/20241114/1_mun_K87hgdf.pdf"
+    },
+    "2025_09_mock": {
+        "title": "2025학년도 9월 모의평가 국어영역",
+        "pdf_url": "https://wdown.ebsi.co.kr/wdown/exam/20240904/1_mun_4hg5jh.pdf"
+    },
+    "2025_06_mock": {
+        "title": "2025학년도 6월 모의평가 국어영역",
+        "pdf_url": "https://wdown.ebsi.co.kr/wdown/exam/20240604/1_mun_h45jhg.pdf"
+    },
+    "2024_suneung": {
+        "title": "2024학년도 대학수학능력시험 국어영역",
+        "pdf_url": "https://wdown.ebsi.co.kr/wdown/exam/20231116/1_mun_hgd45.pdf"
+    },
+    "2024_09_mock": {
+        "title": "2024학년도 9월 모의평가 국어영역",
+        "pdf_url": "https://wdown.ebsi.co.kr/wdown/exam/20230906/1_mun_jh45g.pdf"
+    },
+    "2024_06_mock": {
+        "title": "2024학년도 6월 모의평가 국어영역",
+        "pdf_url": "https://wdown.ebsi.co.kr/wdown/exam/20230601/1_mun_45jhg.pdf"
+    },
+    "2023_suneung": {
+        "title": "2023학년도 대학수학능력시험 국어영역",
+        "pdf_url": "https://wdown.ebsi.co.kr/wdown/exam/20221117/1_mun_hg54d.pdf"
+    },
+    "2023_09_mock": {
+        "title": "2023학년도 9월 모의평가 국어영역",
+        "pdf_url": "https://wdown.ebsi.co.kr/wdown/exam/20220831/1_mun_jh4g5.pdf"
+    }
+}
+
 def get_exam_pdf_source(exam_id: str):
-    """시험지의 PDF 데이터 소스 (파일 경로, Base64 데이터, 웹/구글드라이브 URL)를 반환"""
+    """
+    시험지의 PDF 데이터 소스 (파일 경로, Base64 데이터, 웹/구글드라이브 URL)를 반환
+    1순위: 교사가 직접 업로드한 파일 또는 입력한 링크
+    2순위: 시스템 내장 3개년 평가원 기출 공식 프리셋 (자동 로드)
+    3순위: 관리자 마스터 구글 드라이브 폴더 링크 폴백
+    """
+    # 1순위: 교사가 직접 등록한 시험지 확인
     exams = get_exams()
     if exam_id in exams:
         ex = exams[exam_id]
         url = ex.get("pdf_url", "")
         path = get_exam_pdf_path(exam_id)
         b64 = get_exam_pdf_base64(exam_id) if not path else None
-        return path, b64, url
+        if path or b64 or (url and url.strip()):
+            return path, b64, url
+
+    # 2순위: 3개년 평가원 기출 공식 프리셋 (별도 등록 없이도 0초 자동 로드)
+    if exam_id in KICE_PAST_EXAMS_PRESETS:
+        preset = KICE_PAST_EXAMS_PRESETS[exam_id]
+        return None, None, preset.get("pdf_url", "")
+
+    # 3순위: 교사용 마스터 구글 드라이브 폴더 링크 폴백
+    cfg = get_admin_config()
+    master_drive = cfg.get("google_drive_folder_url", "")
+    if master_drive and master_drive.startswith("http"):
+        return None, None, master_drive
+
     return None, None, None
 
 # --- 진단 제출 로그 (Submissions) ---
