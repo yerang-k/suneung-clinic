@@ -617,6 +617,18 @@ def render_omr_stage():
     # 2. 체크박스 OMR 마킹 시트 (선지도 ①~⑤ 체크박스 형태로 직관화)
     st.markdown("##### ☑️ OMR 체크박스 마킹 시트")
 
+    # 상단 2단 그룹 헤더: [문항 풀이 상태] vs [내가 체크한 답]
+    st.markdown("""
+    <div style="display: flex; gap: 8px; margin-top: 8px; margin-bottom: 6px; font-weight: 700; font-size: 0.93rem;">
+        <div style="flex: 4; background-color: #f1f5f9; color: #334155; padding: 8px 12px; border-radius: 6px; text-align: center; border: 1px solid #cbd5e1;">
+            📋 문항 풀이 상태
+        </div>
+        <div style="flex: 5; background-color: #e0f2fe; color: #0369a1; padding: 8px 12px; border-radius: 6px; text-align: center; border: 1px solid #7dd3fc;">
+            ✏️ 내가 체크한 답 (실제 선택한 선지)
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     editor_key = f"omr_editor_{st.session_state.current_exam_id}_{st.session_state.get('omr_editor_nonce', 0)}"
 
     edited_df = st.data_editor(
@@ -627,11 +639,11 @@ def render_omr_stage():
             "🔴 오답": st.column_config.CheckboxColumn("🔴 오답", default=False, width="small"),
             "🟡 확신 없음": st.column_config.CheckboxColumn("🟡 확신 없음", default=False, width="small"),
             "⏱️ 찍음": st.column_config.CheckboxColumn("⏱️ 찍음", default=False, width="small"),
-            "①": st.column_config.CheckboxColumn("①", default=True, width="small"),
-            "②": st.column_config.CheckboxColumn("②", default=False, width="small"),
-            "③": st.column_config.CheckboxColumn("③", default=False, width="small"),
-            "④": st.column_config.CheckboxColumn("④", default=False, width="small"),
-            "⑤": st.column_config.CheckboxColumn("⑤", default=False, width="small"),
+            "①": st.column_config.CheckboxColumn("내 답 ①", default=True, help="내가 체크한 답 1번", width="small"),
+            "②": st.column_config.CheckboxColumn("내 답 ②", default=False, help="내가 체크한 답 2번", width="small"),
+            "③": st.column_config.CheckboxColumn("내 답 ③", default=False, help="내가 체크한 답 3번", width="small"),
+            "④": st.column_config.CheckboxColumn("내 답 ④", default=False, help="내가 체크한 답 4번", width="small"),
+            "⑤": st.column_config.CheckboxColumn("내 답 ⑤", default=False, help="내가 체크한 답 5번", width="small"),
         },
         use_container_width=True,
         hide_index=True,
