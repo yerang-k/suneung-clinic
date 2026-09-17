@@ -111,34 +111,48 @@ def render_student_login():
         with st.container(border=True):
             st.subheader("🎓 학생 로그인")
             st.caption("선생님이 등록해주신 학번, 이름, 비밀번호로 로그인하세요.")
-            sid = st.text_input("학번 (예: 30101)", placeholder="30101")
-            name = st.text_input("이름", placeholder="김수험")
-            pw = st.text_input("비밀번호", type="password", placeholder="초기 비밀번호 입력")
             
-            if st.button("로그인 및 진단 시작", type="primary", use_container_width=True):
-                if sid.strip() and name.strip() and pw.strip():
-                    ok, res = verify_student(sid, name, pw)
-                    if ok:
-                        st.session_state.auth_student = res
-                        st.session_state.student_stage = "OMR"
-                        st.session_state.chat_history = []
-                        st.session_state.interview_step = "CHAT"
-                        st.session_state.vulnerable_queue = []
-                        st.session_state.queue_index = 0
-                        st.session_state.diagnosed_items = []
-                        if "omr_df" in st.session_state:
-                            del st.session_state["omr_df"]
-                        st.rerun()
+            with st.form("student_login_form"):
+                sid = st.text_input("학번 (예: 30101)", placeholder="30101", key="student_login_sid")
+                name = st.text_input("이름", placeholder="김수험", key="student_login_name")
+                pw = st.text_input("비밀번호", type="password", placeholder="비밀번호 입력", key="student_login_pw")
+                
+                submitted = st.form_submit_button("로그인 및 진단 시작", type="primary", use_container_width=True)
+                if submitted:
+                    sid_clean = (sid or "").strip()
+                    name_clean = (name or "").strip()
+                    pw_clean = (pw or "").strip()
+                    
+                    if sid_clean and name_clean and pw_clean:
+                        ok, res = verify_student(sid_clean, name_clean, pw_clean)
+                        if ok:
+                            st.session_state.auth_student = res
+                            st.session_state.student_stage = "OMR"
+                            st.session_state.chat_history = []
+                            st.session_state.interview_step = "CHAT"
+                            st.session_state.vulnerable_queue = []
+                            st.session_state.queue_index = 0
+                            st.session_state.diagnosed_items = []
+                            if "omr_df" in st.session_state:
+                                del st.session_state["omr_df"]
+                            st.rerun()
+                        else:
+                            st.error(f"❌ {res}")
                     else:
-                        st.error(res)
-                else:
-                    st.warning("학번, 이름, 비밀번호를 모두 입력해 주세요.")
+                        missing = []
+                        if not sid_clean:
+                            missing.append("학번")
+                        if not name_clean:
+                            missing.append("이름")
+                        if not pw_clean:
+                            missing.append("비밀번호")
+                        st.warning(f"⚠️ {', '.join(missing)}을(를) 입력해 주세요.")
             
             st.divider()
-            st.caption("💡 테스트용 계정: 학번 `30101`, 이름 `김수험`, 비밀번호 `1234`")
+            st.caption("💡 테스트용 기본 계정: 학번 `30101`, 이름 `김수험`, 비밀번호 `1234`")
             
             st.write("")
-            if st.button("🔒 교사용 관리자 모드로 전환", use_container_width=True):
+            if st.button("🔒 교사용 관리자 모드로 전환", key="btn_switch_admin", use_container_width=True):
                 st.session_state.app_mode = "ADMIN"
                 st.rerun()
 

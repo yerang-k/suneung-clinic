@@ -186,19 +186,23 @@ def save_students(students):
 
 def add_student(student_id: str, name: str, password: str):
     students = get_students()
+    s_id = str(student_id).strip()
+    s_name = str(name).strip()
+    s_pw = str(password).strip()
     for s in students:
-        if s["student_id"] == student_id:
-            s["name"] = name
-            s["password"] = password
+        if str(s.get("student_id", "")).strip() == s_id:
+            s["name"] = s_name
+            s["password"] = s_pw
             save_students(students)
             return True, "학생 정보가 업데이트되었습니다."
-    students.append({"student_id": student_id, "name": name, "password": password})
+    students.append({"student_id": s_id, "name": s_name, "password": s_pw})
     save_students(students)
     return True, "새 학생이 등록되었습니다."
 
 def delete_student(student_id: str):
     students = get_students()
-    filtered = [s for s in students if s["student_id"] != student_id]
+    s_id = str(student_id).strip()
+    filtered = [s for s in students if str(s.get("student_id", "")).strip() != s_id]
     if len(filtered) != len(students):
         save_students(filtered)
         return True, "학생이 삭제되었습니다."
@@ -206,12 +210,15 @@ def delete_student(student_id: str):
 
 def verify_student(student_id: str, name: str, password: str):
     students = get_students()
+    s_id = str(student_id).strip()
+    s_name = str(name).strip()
+    s_pw = str(password).strip()
     for s in students:
-        if s["student_id"].strip() == student_id.strip():
-            if s["name"].strip() == name.strip() and s["password"].strip() == password.strip():
+        if str(s.get("student_id", "")).strip() == s_id:
+            if str(s.get("name", "")).strip() == s_name and str(s.get("password", "")).strip() == s_pw:
                 return True, s
             return False, "이름 또는 비밀번호가 일치하지 않습니다."
-    return False, "등록되지 않은 학번입니다. 교사에게 문의하세요."
+    return False, "등록되지 않은 학번입니다. 교사용 관리자 모드에서 학생을 먼저 등록해 주세요."
 
 # --- 시험 및 PDF 관리 (Exams) ---
 def get_exams():

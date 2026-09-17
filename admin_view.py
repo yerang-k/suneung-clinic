@@ -26,19 +26,29 @@ def render_admin_dashboard():
         col_add, col_csv = st.columns(2, gap="medium")
         
         with col_add:
-            with st.form("add_student_form", clear_on_submit=True):
+            with st.form("add_student_form", clear_on_submit=False):
                 st.markdown("##### ➕ 개별 학생 등록 / 비밀번호 재설정")
-                new_sid = st.text_input("학번 (예: 30101)", placeholder="30101")
-                new_name = st.text_input("학생 이름", placeholder="김수험")
-                new_pw = st.text_input("접속 비밀번호", value="1234")
+                new_sid = st.text_input("학번 (예: 30101)", placeholder="30101", key="admin_add_sid")
+                new_name = st.text_input("학생 이름", placeholder="김수험", key="admin_add_name")
+                new_pw = st.text_input("접속 비밀번호", value="1234", key="admin_add_pw")
                 submitted = st.form_submit_button("학생 등록 및 저장", type="primary", use_container_width=True)
                 if submitted:
-                    if new_sid.strip() and new_name.strip() and new_pw.strip():
-                        ok, msg = add_student(new_sid.strip(), new_name.strip(), new_pw.strip())
-                        st.success(msg)
+                    sid_c = (new_sid or "").strip()
+                    name_c = (new_name or "").strip()
+                    pw_c = (new_pw or "").strip()
+                    if sid_c and name_c and pw_c:
+                        ok, msg = add_student(sid_c, name_c, pw_c)
+                        st.success(f"✅ {name_c}({sid_c}) {msg}")
                         st.rerun()
                     else:
-                        st.error("학번, 이름, 비밀번호를 모두 입력해주세요.")
+                        missing = []
+                        if not sid_c:
+                            missing.append("학번")
+                        if not name_c:
+                            missing.append("이름")
+                        if not pw_c:
+                            missing.append("비밀번호")
+                        st.error(f"⚠️ {', '.join(missing)}을(를) 모두 입력해주세요.")
 
         with col_csv:
             st.markdown("##### 📥 CSV 파일로 학생 일괄 등록")
