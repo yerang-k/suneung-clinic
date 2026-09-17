@@ -259,13 +259,15 @@ def safe_parse_json(text: str):
             return json.loads(match.group(0))
         raise ValueError("JSON 응답을 해석할 수 없습니다.")
 
+
 def render_kakaotalk_chat(chat_history):
     """
-    카카오톡 스타일 대화 뷰어:
-    - AI(어시스턴트): 왼쪽 정렬, 🎯 아바타, 화이트 말풍선
-    - 학생(나): 오른쪽 정렬, 카카오톡 노란색(#fee500) 말풍선
+    카카오톡 메신저 인터페이스:
+    AI(어시스턴트)는 좌측 프로필 아바타와 함께, 학생(유저)은 우측 카카오 노란색 말풍선으로 배치.
+    마크다운 4칸 들여쓰기로 인한 코드블록 오작동을 방지하기 위해 공백 없는 인라인 HTML로 조합.
     """
     if not chat_history:
+        st.caption("대화가 시작되면 이곳에 질문과 답변이 표시됩니다.")
         return
     
     html_items = [
@@ -274,34 +276,32 @@ def render_kakaotalk_chat(chat_history):
     
     for msg in chat_history:
         role = msg.get("role")
-        raw_text = str(msg.get("content", ""))
+        raw_text = str(msg.get("content", "")).strip()
         # HTML 특수문자 및 줄바꿈 처리
         safe_text = raw_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
         # 볼드 마크다운 (**text**) 치환
         safe_text = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", safe_text)
         
         if role == "assistant":
-            html_items.append(f"""
-            <div style="display: flex; align-items: flex-start; gap: 8px; justify-content: flex-start; margin-right: 15%;">
-                <div style="width: 34px; height: 34px; border-radius: 50%; background: #E6F3F2; border: 1px solid #B8E1BE; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0; box-shadow: 0 1px 2px rgba(14, 14, 41, 0.06);">
-                    🎯
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 3px; max-width: 88%;">
-                    <span style="font-size: 0.78rem; color: #59594A; font-weight: 600; margin-left: 2px;">AI 사고 복원 코치</span>
-                    <div style="background: #ffffff; color: #0E0E29; padding: 10px 14px; border-radius: 4px 12px 12px 12px; border: 1px solid #EBEBE7; font-size: 0.95rem; line-height: 1.55; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.05); word-break: break-word;">
-                        {safe_text}
-                    </div>
-                </div>
-            </div>
-            """)
+            item_html = (
+                '<div style="display: flex; align-items: flex-start; gap: 8px; justify-content: flex-start; margin-right: 15%;">'
+                '<div style="width: 34px; height: 34px; border-radius: 50%; background: #E6F3F2; border: 1px solid #B8E1BE; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0; box-shadow: 0 1px 2px rgba(14, 14, 41, 0.06);">'
+                '🎯'
+                '</div>'
+                '<div style="display: flex; flex-direction: column; gap: 3px; max-width: 88%;">'
+                '<span style="font-size: 0.78rem; color: #59594A; font-weight: 600; margin-left: 2px;">AI 사고 복원 코치</span>'
+                f'<div style="background: #ffffff; color: #0E0E29; padding: 10px 14px; border-radius: 4px 12px 12px 12px; border: 1px solid #EBEBE7; font-size: 0.95rem; line-height: 1.55; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.05); word-break: break-word;">{safe_text}</div>'
+                '</div>'
+                '</div>'
+            )
+            html_items.append(item_html)
         else:
-            html_items.append(f"""
-            <div style="display: flex; align-items: flex-end; justify-content: flex-end; margin-left: 15%;">
-                <div style="background: #fee500; color: #191600; padding: 10px 14px; border-radius: 12px 4px 12px 12px; font-size: 0.95rem; font-weight: 500; line-height: 1.55; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.07); word-break: break-word; border: 1px solid #fde047; max-width: 88%;">
-                    {safe_text}
-                </div>
-            </div>
-            """)
+            item_html = (
+                '<div style="display: flex; align-items: flex-end; justify-content: flex-end; margin-left: 15%;">'
+                f'<div style="background: #fee500; color: #191600; padding: 10px 14px; border-radius: 12px 4px 12px 12px; font-size: 0.95rem; font-weight: 500; line-height: 1.55; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.07); word-break: break-word; border: 1px solid #fde047; max-width: 88%;">{safe_text}</div>'
+                '</div>'
+            )
+            html_items.append(item_html)
             
     html_items.append("</div>")
     st.markdown("".join(html_items), unsafe_allow_html=True)
@@ -1247,10 +1247,43 @@ def render_interview_stage(client):
     # [우측 열] Gemini 소크라테스 인터뷰 (화면 고정)
     with col_chat:
         if st.session_state.interview_step == "CHAT":
-            st.markdown("### 💬 AI 사고 복원 인터뷰")
+            # 상단 헤더: 타이틀(좌측) + 대화 종료 및 요약안 작성하기 버튼(우측)
+            col_chat_title, col_finish_btn = st.columns([1.05, 1.35], vertical_alignment="center")
+            with col_chat_title:
+                st.markdown("<h3 style='margin:0; padding: 2px 0; font-size: 1.22rem;'>💬 AI 사고 복원 인터뷰</h3>", unsafe_allow_html=True)
+            with col_finish_btn:
+                # 학생 답변 1회 이상(전체 2개 이상) 시 요약안 작성 버튼 활성화 (빠른 진행 지원)
+                if len(st.session_state.chat_history) >= 2:
+                    if st.button("📝 대화 종료 및 내 사고 요약안 작성하기", use_container_width=True, type="primary", key="btn_finish_interview_top"):
+                        with chat_box if 'chat_box' in locals() else st.container():
+                            with st.spinner("당시 사고 경로를 1인칭으로 요약 중입니다..."):
+                                q_item_ctx = get_question_full_context(exam_info, q_num)
+                                passage_ref = f"(지문 제재: {q_item_ctx.get('genre', '')} / 주제: {q_item_ctx.get('topic', '')})" if q_item_ctx else ""
+                                summary_prompt = f"""
+지금까지의 대화 전문과 지문 텍스트를 바탕으로, 학생이 시험장에서 해당 선지를 고르게 된 '인지 왜곡 및 사고 경로'를 1~2문장으로 명확히 요약해 주십시오. {passage_ref}
+지문의 구체적 내용이나 오독한 핵심 어휘를 직접 언급하며, 1인칭('나는 지문의 ~라는 내용을 ~라고 잘못 생각하여 ~했다') 시점으로 작성하세요.
+"""
+                                contents_for_summary = build_gemini_contents(st.session_state.chat_history)
+                                contents_for_summary.append(types.Content(
+                                    role="user",
+                                    parts=[types.Part.from_text(text=summary_prompt)]
+                                ))
+                                try:
+                                    summary_res = call_gemini_safe(
+                                        client,
+                                        contents=contents_for_summary
+                                    )
+                                    st.session_state.draft_summary = summary_res.text
+                                    st.session_state.interview_step = "REVIEW"
+                                    st.session_state["last_chat_error"] = None
+                                    save_current_student_progress()
+                                    st.rerun()
+                                except Exception as e:
+                                    st.session_state["last_chat_error"] = f"사고 요약 작성 실패: {e}"
+                                    st.rerun()
 
-            # 1. 고정 높이 스크롤 메시지 박스 (카카오톡 스타일: AI 좌측, 학생 우측 정렬)
-            chat_box = st.container(height=VIEWER_HEIGHT - 100)
+            # 1. 고정 높이 스크롤 메시지 박스 (기존보다 길고 시원하게 확대)
+            chat_box = st.container(height=VIEWER_HEIGHT - 20)
             with chat_box:
                 render_kakaotalk_chat(st.session_state.chat_history)
 
@@ -1289,36 +1322,6 @@ def render_interview_stage(client):
                     if st.button("✖️ 오류 메시지 닫기", key="close_chat_err_btn", use_container_width=True):
                         st.session_state["last_chat_error"] = None
                         st.rerun()
-
-            # 3. 학생 답변 1회 이상(전체 2개 이상) 시 요약안 작성 버튼 활성화 (빠른 진행 지원)
-            if len(st.session_state.chat_history) >= 2:
-                if st.button("📝 대화 종료 및 내 사고 요약안 작성하기", use_container_width=True, type="primary"):
-                    with chat_box:
-                        with st.spinner("당시 사고 경로를 1인칭으로 요약 중입니다..."):
-                            q_item_ctx = get_question_full_context(exam_info, q_num)
-                            passage_ref = f"(지문 제재: {q_item_ctx.get('genre', '')} / 주제: {q_item_ctx.get('topic', '')})" if q_item_ctx else ""
-                            summary_prompt = f"""
-지금까지의 대화 전문과 지문 텍스트를 바탕으로, 학생이 시험장에서 해당 선지를 고르게 된 '인지 왜곡 및 사고 경로'를 1~2문장으로 명확히 요약해 주십시오. {passage_ref}
-지문의 구체적 내용이나 오독한 핵심 어휘를 직접 언급하며, 1인칭('나는 지문의 ~라는 내용을 ~라고 잘못 생각하여 ~했다') 시점으로 작성하세요.
-"""
-                            contents_for_summary = build_gemini_contents(st.session_state.chat_history)
-                            contents_for_summary.append(types.Content(
-                                role="user",
-                                parts=[types.Part.from_text(text=summary_prompt)]
-                            ))
-                            try:
-                                summary_res = call_gemini_safe(
-                                    client,
-                                    contents=contents_for_summary
-                                )
-                                st.session_state.draft_summary = summary_res.text
-                                st.session_state.interview_step = "REVIEW"
-                                st.session_state["last_chat_error"] = None
-                                save_current_student_progress()
-                                st.rerun()
-                            except Exception as e:
-                                st.session_state["last_chat_error"] = f"사고 요약 작성 실패: {e}"
-                                st.rerun()
 
             # 4. 학생 입력창 (화면 하단에 항상 고정)
             if user_input := st.chat_input("당시 들었던 생각, 헷갈렸던 문장이나 단어를 솔직히 적어주세요..."):
