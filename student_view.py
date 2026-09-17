@@ -346,7 +346,7 @@ def render_student_welcome_header():
     }.get(stage, "진단 진행 중")
 
     st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #bae6fd; border-radius: 12px; padding: 1.1rem 1.5rem; margin-bottom: 1.2rem; box-shadow: 0 2px 5px rgba(0,0,0,0.03);">
+    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #bae6fd; border-radius: 12px; padding: 1.1rem 1.5rem; margin-bottom: 0.8rem; box-shadow: 0 2px 5px rgba(0,0,0,0.03);">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
             <div>
                 <h2 style="color: #0369a1; margin: 0; font-size: 1.55rem; font-weight: 800; letter-spacing: -0.5px;">
@@ -359,6 +359,33 @@ def render_student_welcome_header():
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # ⭐️ 퀵 메뉴바: 사이드바가 닫혀있어도 어디서나 1초 만에 설정/이동 가능
+    c_m1, c_m2, c_m3 = st.columns([1.2, 1, 0.8])
+    with c_m1:
+        saved_k, _ = get_effective_api_key()
+        api_badge = "✅ AI 연동 완료" if saved_k else "⚠️ API 키 미등록"
+        with st.expander(f"🔑 Gemini API 설정 ({api_badge})", expanded=False):
+            q_key = st.text_input("Gemini API Key", value=saved_k, type="password", key="welcome_header_api_key")
+            if st.button("💾 이 기기에 API 키 저장", key="btn_save_welcome_api_key", type="primary", use_container_width=True):
+                if q_key.strip():
+                    save_student_api_key(q_key.strip())
+                    st.success("API 키가 저장되었습니다!")
+                    st.rerun()
+                else:
+                    st.warning("키를 입력해주세요.")
+    with c_m2:
+        if st.button("🔒 선생님 관리자 페이지", key="welcome_switch_admin", use_container_width=True):
+            st.query_params["mode"] = "admin"
+            st.session_state.app_mode = "ADMIN"
+            st.rerun()
+    with c_m3:
+        if st.button("🚪 학생 로그아웃", key="welcome_logout", use_container_width=True):
+            st.session_state.auth_student = None
+            st.session_state.student_stage = "LOGIN"
+            st.rerun()
+
+    st.write("")
 
 def render_stage_navigation_bar():
     """

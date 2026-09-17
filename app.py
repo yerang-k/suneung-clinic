@@ -36,7 +36,6 @@ st.set_page_config(
 st.markdown("""
 <style>
 /* 1. 우측 상단 불필요한 툴바(Share, 별, 연필, 깃허브, 햄버거 메뉴)만 정확히 제거 */
-[data-testid="stToolbar"],
 [data-testid="stToolbarActions"],
 [data-testid="stHeaderActionElements"],
 [data-testid="stDecoration"],
@@ -44,23 +43,24 @@ st.markdown("""
 #MainMenu,
 footer,
 .stDeployButton,
-header [data-testid="stToolbarActions"],
-header [data-testid="stHeaderActionElements"],
-header a[href*="github.com"],
-header div[class*="toolbar"],
-header div[class*="stAppToolbar"] {
+header a[href*="github.com"] {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
-    height: 0 !important;
-    width: 0 !important;
     pointer-events: none !important;
 }
 
-/* 2. 상단 헤더: 투명 배경 */
+/* 2. 상단 헤더: 정상 가시성 유지 & 투명 배경 */
 header[data-testid="stHeader"] {
     background: transparent !important;
-    z-index: 999 !important;
+    z-index: 9999 !important;
+    display: flex !important;
+    visibility: visible !important;
+}
+
+div[class*="stAppToolbar"] {
+    display: flex !important;
+    visibility: visible !important;
 }
 
 /* 3. ⭐️ 좌측 사이드바 펼치기 토글 버튼(>>) 완벽 복원 및 선명하게 표시 */
@@ -89,17 +89,18 @@ div[data-testid="collapsedControl"] button {
     pointer-events: auto !important;
     cursor: pointer !important;
     background-color: #ffffff !important;
-    border: 1.5px solid #3b82f6 !important;
+    border: 2px solid #2563eb !important;
     border-radius: 8px !important;
     color: #1d4ed8 !important;
-    padding: 3px 8px !important;
-    box-shadow: 0 2px 5px rgba(59, 130, 246, 0.25) !important;
+    padding: 4px 10px !important;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3) !important;
 }
 
 [data-testid="stSidebarCollapsedControl"] button:hover,
 [data-testid="collapsedControl"] button:hover {
     background-color: #eff6ff !important;
     border-color: #1d4ed8 !important;
+    transform: scale(1.05);
 }
 
 /* 사이드바 내부 닫기 버튼도 정상 작동 보장 */
@@ -110,9 +111,9 @@ div[data-testid="collapsedControl"] button {
     pointer-events: auto !important;
 }
 
-/* 메인 컨테이너 상단 여백 최적화 */
+/* 메인 컨테이너 상단 여백 최적화 (헤더와 겹치지 않도록 3.5rem 확보) */
 .block-container {
-    padding-top: 2rem !important;
+    padding-top: 3.5rem !important;
     padding-bottom: 2.5rem !important;
 }
 </style>
