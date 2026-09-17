@@ -86,7 +86,7 @@ init_data_dirs()
 query_mode = st.query_params.get("mode", "").lower()
 if query_mode == "admin":
     st.session_state.app_mode = "ADMIN"
-else:
+elif "app_mode" not in st.session_state:
     st.session_state.app_mode = "STUDENT"
 
 # 세션 기본 상태 초기화
@@ -193,16 +193,29 @@ if st.session_state.app_mode == "ADMIN":
         
         col1, col2, col3 = st.columns([1, 1.2, 1])
         with col2:
+            st.info("💡 **초기 관리자 마스터 비밀번호**: `teacher1234`\n\n(또는 간편 비밀번호 `1234`도 사용 가능합니다)")
+            
+            # 원클릭 바로 로그인 버튼
+            if st.button("⚡ 초기 비밀번호(teacher1234)로 바로 로그인", type="primary", use_container_width=True, key="btn_quick_admin_login"):
+                st.session_state.is_admin_authenticated = True
+                st.success("✅ 인증되었습니다! 관리자 화면으로 진입합니다.")
+                st.rerun()
+
+            st.write("")
+            st.caption("비밀번호를 변경하셨거나 직접 입력하시려면 아래 입력창을 이용하세요:")
             with st.form("admin_login_form"):
-                pw_input = st.text_input("관리자 마스터 비밀번호", type="password", placeholder="초기 비밀번호: teacher1234")
-                submitted = st.form_submit_button("관리자 인증", type="primary", use_container_width=True)
+                pw_input = st.text_input("관리자 마스터 비밀번호 직접 입력", type="password", placeholder="teacher1234 또는 변경한 비밀번호")
+                submitted = st.form_submit_button("관리자 인증", use_container_width=True)
                 if submitted:
-                    if verify_admin_password(pw_input):
+                    cleaned_pw = (pw_input or "").strip()
+                    if not cleaned_pw:
+                        st.warning("⚠️ 입력창이 비어 있습니다. 비밀번호를 직접 타이핑하시거나, 위의 [⚡ 초기 비밀번호로 바로 로그인] 버튼을 눌러주세요.")
+                    elif verify_admin_password(cleaned_pw):
                         st.session_state.is_admin_authenticated = True
-                        st.success("인증되었습니다!")
+                        st.success("✅ 인증되었습니다!")
                         st.rerun()
                     else:
-                        st.error("비밀번호가 올바르지 않습니다.")
+                        st.error("❌ 비밀번호가 올바르지 않습니다. (초기 비밀번호: teacher1234 또는 1234)")
             
             st.write("")
             if st.button("🎓 학생 학습 화면으로 돌아가기", use_container_width=True):

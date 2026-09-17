@@ -282,7 +282,14 @@ def save_admin_config(config):
 
 def verify_admin_password(password: str) -> bool:
     cfg = get_admin_config()
-    return cfg.get("admin_password") == password
+    target_pw = str(cfg.get("admin_password", "teacher1234")).strip()
+    input_pw = str(password or "").strip()
+    if not input_pw:
+        return False
+    # 초기 비밀번호 상태일 때는 teacher1234뿐 아니라 1234도 허용하여 입력 편의 보장
+    if target_pw == "teacher1234" and input_pw in ["teacher1234", "1234"]:
+        return True
+    return target_pw == input_pw
 
 # --- 학생/로컬 사용자 설정 (User Config) ---
 def get_user_config() -> dict:
