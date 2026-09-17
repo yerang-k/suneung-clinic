@@ -125,10 +125,11 @@ def render_pdf_viewer(base64_pdf: str = None, pdf_url: str = None, pdf_path: str
                 if pdf_url and pdf_url.startswith("http"):
                     st.link_button("↗ 원문 링크", pdf_url, use_container_width=True)
 
-            # 캐시된 초고속 페이지 이미지 출력
+            # 캐시된 초고속 페이지 이미지 출력 (독립 고정 스크롤 박스 적용)
             img_bytes = render_pdf_page_cached(pdf_bytes, cur_page - 1, scale=2.0)
             if img_bytes:
-                st.image(img_bytes, use_container_width=True, caption=f"시험지 {cur_page} / {total_pages} 페이지")
+                with st.container(height=height):
+                    st.image(img_bytes, use_container_width=True, caption=f"📄 {cur_page} / {total_pages} 페이지 (마우스 휠로 위아래 스크롤)")
             else:
                 st.error("페이지 렌더링 실패")
             return

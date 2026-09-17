@@ -560,9 +560,29 @@ def render_interview_stage(client):
             st.session_state.student_stage = "OMR"
             st.rerun()
 
+    # 좌측 PDF창과 우측 채팅창의 완벽한 분리 및 우측 고정 CSS
+    st.markdown("""
+    <style>
+    /* 우측 채팅 열을 화면에 딱 고정 (Sticky) */
+    div[data-testid="column"]:nth-of-type(2) {
+        position: sticky !important;
+        top: 1.5rem !important;
+        align-self: flex-start !important;
+        z-index: 10 !important;
+    }
+    /* 좌측 및 우측 스크롤 컨테이너 부드러운 스크롤 */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        border-radius: 10px;
+        transition: all 0.2s ease-in-out;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     col_paper, col_chat = st.columns([1.1, 1.1], gap="large")
 
-    # [좌측 열] 시험지 원문 뷰어 (PDF 또는 평가원 텍스트 뷰어)
+    # [좌측 열] 시험지 원문 뷰어 (독립 스크롤)
+    VIEWER_HEIGHT = 600
+
     with col_paper:
         pdf_path, pdf_b64, pdf_url = get_exam_pdf_source(exam_info["exam_id"])
         
@@ -570,29 +590,31 @@ def render_interview_stage(client):
         
         with tab_pdf:
             if pdf_path or pdf_b64 or pdf_url:
-                st.caption("💡 실제 시험지 PDF 원문입니다. 확대/축소 및 페이지를 자유롭게 넘겨보며 당시 시야를 복기하세요.")
-                render_pdf_viewer(base64_pdf=pdf_b64, pdf_url=pdf_url, pdf_path=pdf_path, initial_page=1, height=720)
+                st.caption("💡 마우스 휠로 위아래를 스크롤하여 지문과 선지를 확인하세요. (우측 채팅창은 고정됩니다)")
+                render_pdf_viewer(base64_pdf=pdf_b64, pdf_url=pdf_url, pdf_path=pdf_path, initial_page=1, height=VIEWER_HEIGHT)
             else:
                 st.info(f"선생님이 아직 '{exam_info['title']}'의 원문 PDF를 등록하지 않았습니다. [문항 텍스트 집중 보기] 탭을 확인해 주세요.")
+                with st.container(height=VIEWER_HEIGHT):
+                    if q_num in SAMPLE_QUESTIONS_TEXT:
+                        render_csat_text_view(SAMPLE_QUESTIONS_TEXT[q_num], my_pick, status_label)
+                    else:
+                        st.write(f"**{q_num}번 문항 원문을 책상 위 종이 시험지에서 확인해 주세요.**")
+
+        with tab_text:
+            with st.container(height=VIEWER_HEIGHT):
                 if q_num in SAMPLE_QUESTIONS_TEXT:
                     render_csat_text_view(SAMPLE_QUESTIONS_TEXT[q_num], my_pick, status_label)
                 else:
-                    st.write(f"**{q_num}번 문항 원문을 책상 위 종이 시험지에서 확인해 주세요.**")
+                    st.write(f"현재 등록된 텍스트 지문이 없습니다. 오프라인 시험지의 **{q_num}번 문항**을 함께 보면서 진행해주세요.")
 
-        with tab_text:
-            if q_num in SAMPLE_QUESTIONS_TEXT:
-                render_csat_text_view(SAMPLE_QUESTIONS_TEXT[q_num], my_pick, status_label)
-            else:
-                st.write(f"현재 등록된 텍스트 지문이 없습니다. 오프라인 시험지의 **{q_num}번 문항**을 함께 보면서 진행해주세요.")
-
-    # [우측 열] Gemini 소크라테스 인터뷰
+    # [우측 열] Gemini 소크라테스 인터뷰 (화면 고정)
     with col_chat:
         if st.session_state.interview_step == "CHAT":
             st.markdown("### 💬 AI 사고 복원 인터뷰")
-            st.caption("💡 대화를 주고받으며 시험장에서의 인지 과정을 편안하게 복기해 보세요. (이전 대화는 위로 올라갑니다)")
+            st.caption("💡 화면에 고정된 대화창입니다. 질문에 맞춰 당시 생각을 편하게 적어주세요.")
 
-            # 1. 고정 높이 스크롤 메시지 박스 (일반 메신저 방식)
-            chat_box = st.container(height=500)
+            # 1. 고정 높이 스크롤 메시지 박스 (좌측과 정확히 균형을 맞춤)
+            chat_box = st.container(height=VIEWER_HEIGHT - 100)
             with chat_box:
                 for msg in st.session_state.chat_history:
                     with st.chat_message(msg["role"]):
