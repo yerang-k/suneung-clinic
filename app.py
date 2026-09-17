@@ -35,19 +35,20 @@ st.set_page_config(
 # ⭐️ 전역 스타일: 상단 GitHub 아이콘, Edit(연필) 아이콘, 햄버거 메뉴, 툴바 완전 제거 & 깔끔한 여백
 st.markdown("""
 <style>
-/* Streamlit 우측 상단 GitHub 아이콘, Edit/연필 아이콘, Share, 별, 햄버거 메뉴, 배포 버튼 완전 제거 */
+/* 1. 우측 상단 불필요한 툴바(Share, 별, 연필, 깃허브, 햄버거 메뉴)만 정확히 제거 */
 [data-testid="stToolbar"],
+[data-testid="stToolbarActions"],
+[data-testid="stHeaderActionElements"],
 [data-testid="stDecoration"],
 [data-testid="stStatusWidget"],
 #MainMenu,
 footer,
 .stDeployButton,
-header [data-testid="stToolbar"],
 header [data-testid="stToolbarActions"],
 header [data-testid="stHeaderActionElements"],
+header a[href*="github.com"],
 header div[class*="toolbar"],
-header div[class*="stAppToolbar"],
-header button:not([data-testid="stSidebarCollapsedControl"] button):not([data-testid="stSidebarCollapsedControl"]) {
+header div[class*="stAppToolbar"] {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
@@ -56,22 +57,62 @@ header button:not([data-testid="stSidebarCollapsedControl"] button):not([data-te
     pointer-events: none !important;
 }
 
-/* 상단 헤더 자체는 투명하게 유지하여 좌측 사이드바 열기 토글 버튼(>>)이 정상 작동하도록 보장 */
+/* 2. 상단 헤더: 투명 배경 */
 header[data-testid="stHeader"] {
     background: transparent !important;
-    z-index: 100 !important;
+    z-index: 999 !important;
 }
 
-/* 좌측 사이드바 열기 토글 버튼 확실히 보이도록 유지 */
-[data-testid="stSidebarCollapsedControl"] {
+/* 3. ⭐️ 좌측 사이드바 펼치기 토글 버튼(>>) 완벽 복원 및 선명하게 표시 */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"],
+header [data-testid="stSidebarCollapsedControl"],
+header [data-testid="collapsedControl"] {
     display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
+    pointer-events: auto !important;
+    position: fixed !important;
+    top: 0.6rem !important;
+    left: 0.8rem !important;
+    z-index: 100000 !important;
+}
+
+/* 사이드바 토글 버튼 내부 스타일: 깔끔한 흰색 배경에 파란색 아이콘과 그림자 */
+[data-testid="stSidebarCollapsedControl"] button,
+[data-testid="collapsedControl"] button,
+div[data-testid="stSidebarCollapsedControl"] button,
+div[data-testid="collapsedControl"] button {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    background-color: #ffffff !important;
+    border: 1.5px solid #3b82f6 !important;
+    border-radius: 8px !important;
+    color: #1d4ed8 !important;
+    padding: 3px 8px !important;
+    box-shadow: 0 2px 5px rgba(59, 130, 246, 0.25) !important;
+}
+
+[data-testid="stSidebarCollapsedControl"] button:hover,
+[data-testid="collapsedControl"] button:hover {
+    background-color: #eff6ff !important;
+    border-color: #1d4ed8 !important;
+}
+
+/* 사이드바 내부 닫기 버튼도 정상 작동 보장 */
+[data-testid="stSidebarCollapseButton"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
 }
 
 /* 메인 컨테이너 상단 여백 최적화 */
 .block-container {
-    padding-top: 1.5rem !important;
+    padding-top: 2rem !important;
     padding-bottom: 2.5rem !important;
 }
 </style>
