@@ -5,7 +5,8 @@ import requests
 import pandas as pd
 from data_manager import (
     verify_student, get_exams, get_exam_pdf_base64,
-    get_exam_pdf_source, get_admin_config, save_submission
+    get_exam_pdf_source, get_admin_config, save_submission,
+    get_student_submissions, get_student_vulnerability_profile
 )
 from pdf_viewer import render_pdf_viewer, render_csat_text_view
 from prescription_engine import get_prescription_problems, evaluate_student_defense
@@ -157,11 +158,122 @@ def render_student_login():
                 st.rerun()
 
 # ==========================================
+# 1-1. 학생 개인 맞춤형 누적 성장 리포트 (마이페이지)
+# ==========================================
+def render_student_mypage():
+    """
+    학생 개인 맞춤형 누적 성장 리포트 (마이페이지)
+    - 과거 진단 이력 및 누적 취약점 TOP 3
+    - 나만의 실전 행동 원칙 (Action Rules) 아카이브
+    - 과거 시험별 상세 오답 복원 기록 열람
+    """
+    student = st.session_state.get("auth_student")
+    if not student:
+        st.warning("로그인이 필요한 서비스입니다.")
+        return
+
+    profile = get_student_vulnerability_profile(student["student_id"])
+    
+    st.markdown(f"### 📊 **{student['name']}** ({student['student_id']}) 님의 사고 복원 성장 기록")
+    st.caption("지금까지 응시한 모의평가·수능의 오답 복원 결과가 누적되어 나만의 맞춤형 취약점 지도를 형성합니다.")
+
+    if not profile["has_history"]:
+        st.info("💡 아직 제출된 진단 기록이 없습니다. 상단 **[✏️ 시험 진단실]** 탭에서 첫 번째 시험지 진단을 완료해 보세요!")
+        return
+
+    # 1. 상단 핵심 메트릭 카드
+    m1, m2, m3, m4 = st.columns(4)
+    with m1:
+        st.metric("총 진단 완료 시험", f"{profile['total_submissions']}회")
+    with m2:
+        st.metric("정밀 분석 문항 수", f"{profile['total_questions']}개")
+    with m3:
+        top1_tag = profile['top_vulnerabilities'][0][0] if profile['top_vulnerabilities'] else "없음"
+        top1_cnt = profile['top_vulnerabilities'][0][1] if profile['top_vulnerabilities'] else 0
+        st.metric("최대 빈출 취약점 (1위)", top1_tag, f"{top1_cnt}회 감지")
+    with m4:
+        st.metric("수립된 실전 행동 원칙", f"{len(profile['action_rules'])}개")
+
+    st.write("")
+
+    # 2. 탭 구성
+    tab_summary, tab_rules, tab_history = st.tabs([
+        "🚨 취약점 패턴 정밀 분석",
+        "🎯 수능장 지참용 나만의 행동 원칙 요약집",
+        "📜 시험별 오답 복원 상세 이력"
+    ])
+
+    with tab_summary:
+        st.subheader("🚨 나의 6대 사고 오류 누적 분포")
+        st.caption("시험장에서 반복적으로 나타나는 무의식적 인지 왜곡 패턴입니다. 상위 취약점을 특히 경계하세요.")
+
+        col_top, col_chart = st.columns([1.2, 1.8], gap="medium")
+        with col_top:
+            st.markdown("##### 📌 집중 극복 대상 TOP 3")
+            for rank, (tag, count) in enumerate(profile["top_vulnerabilities"], start=1):
+                badge_color = "#ef4444" if rank == 1 else ("#f97316" if rank == 2 else "#eab308")
+                ratio = round(count / max(1, profile['total_questions']) * 100, 1)
+                st.markdown(f"""
+                <div style="background-color: #f8fafc; border-left: 4px solid {badge_color}; padding: 12px 14px; margin-bottom: 10px; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                    <div style="font-weight: bold; color: #1e293b; font-size: 1.05rem;">{rank}위: {tag}</div>
+                    <div style="color: #64748b; font-size: 0.9rem; margin-top: 4px;">총 <b>{count}문항</b>에서 감지 (전체 분석의 {ratio}%)</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        with col_chart:
+            st.markdown("##### 📊 사고 왜곡 유형별 누적 빈도")
+            if profile["tag_counts"]:
+                df_tags = pd.DataFrame([
+                    {"사고 오류 유형": k, "감지 횟수": v}
+                    for k, v in profile["tag_counts"].items()
+                ]).sort_values(by="감지 횟수", ascending=True)
+                st.bar_chart(df_tags.set_index("사고 오류 유형"), horizontal=True, color="#0284c7")
+
+    with tab_rules:
+        st.subheader("🎯 수능장 지참용 나만의 행동 원칙 (Action Rules)")
+        st.caption("각 시험지에서 내가 직접 경험한 함정과 AI 소크라테스 인터뷰를 통해 도출한 '실전 방어 행동 원칙' 모음입니다.")
+
+        if profile["action_rules"]:
+            for idx, r in enumerate(profile["action_rules"], start=1):
+                with st.container(border=True):
+                    col_r1, col_r2 = st.columns([3.2, 1])
+                    with col_r1:
+                        st.markdown(f"**📌 [{r['exam_title']}] {r['q_num']}번 문항** `오류: {r['error_tag']}`")
+                        st.markdown(f"💡 **나의 행동 원칙:** <span style='color: #0369a1; font-weight: bold; font-size: 1.05rem;'>\"{r['action_rule']}\"</span>", unsafe_allow_html=True)
+                    with col_r2:
+                        st.caption(f"📅 진단일: {r['timestamp']}")
+        else:
+            st.info("아직 수립된 행동 원칙이 없습니다.")
+
+    with tab_history:
+        st.subheader("📜 시험별 진단 제출 상세 이력")
+        subs = get_student_submissions(student["student_id"])
+        for s in subs:
+            with st.expander(f"📝 {s.get('exam_title')} (제출 일시: {s.get('timestamp')})"):
+                st.markdown(f"- **소요 시간:** {s.get('total_time', 80)}분 | **체감 시간 압박:** {s.get('time_pressure', '보통')}")
+                st.markdown(f"- **감지된 주요 오류 태그:** {', '.join(s.get('error_tags', []))}")
+                st.markdown("---")
+                st.markdown("##### 🔍 문항별 정밀 복원 기록:")
+                for d in s.get("diagnosed_items", []):
+                    st.markdown(f"**[{d.get('q_num')}번 문항]** (내 선택: {d.get('my_pick')}번 | 오류 태그: `{d.get('error_tag')}`)")
+                    st.markdown(f"- 🧠 **내 당시 사고 과정:** {d.get('student_thought')}")
+                    st.markdown(f"- 😈 **평가원 함정 설계:** {d.get('evaluator_trap')}")
+                    st.markdown(f"- 💡 **실전 행동 원칙:** *{d.get('action_rule')}*")
+                    st.write("")
+
+# ==========================================
 # 2. OMR 일괄 상태 입력 뷰
 # ==========================================
 def render_omr_stage():
     student = st.session_state.auth_student
     st.markdown(f"### 👋 반가워요, **{student['name']}** ({student['student_id']}) 학생!")
+    
+    # 학생의 과거 누적 취약점 프로필 조회 및 경보 배너 표시
+    profile = get_student_vulnerability_profile(student["student_id"])
+    if profile.get("has_history") and profile.get("top_vulnerabilities"):
+        top_tags_text = ", ".join([f"**{tag}**({cnt}회)" for tag, cnt in profile["top_vulnerabilities"][:2]])
+        st.info(f"💡 **누적 취약점 경보**: 지난 진단에서 {top_tags_text} 패턴이 자주 감지되었습니다. 이번 시험지에서도 비슷한 사고 왜곡이 발생하지 않았는지 주의 깊게 복기해 보세요!")
+
     st.markdown("""
     오프라인에서 시간 맞춰 푼 시험지를 책상 위에 펼쳐놓으세요.  
     **모든 문제를 다 대화할 필요는 없습니다.** `확신`하고 맞힌 문제는 자동으로 건너뛰고,  
@@ -390,7 +502,12 @@ def render_interview_stage(client):
     col_stat1, col_stat2 = st.columns([3, 1])
     with col_stat1:
         st.markdown(f"#### 🎯 취약 문항 복원 중: **{q_idx + 1} / {total_in_queue} 번째** (문항 번호: **{q_num}번**)")
-        st.caption(f"학생: **{student['name']}** | 상태: `{status_label}` | 내가 고른 선지: **{my_pick}번**")
+        caption_base = f"학생: **{student['name']}** | 상태: `{status_label}` | 내가 고른 선지: **{my_pick}번**"
+        profile = get_student_vulnerability_profile(student["student_id"])
+        if profile.get("has_history") and profile.get("top_vulnerabilities"):
+            top_str = ", ".join([t[0] for t in profile["top_vulnerabilities"][:2]])
+            caption_base += f" | 🧠 *과거 취약점 연동: {top_str}*"
+        st.caption(caption_base)
     with col_stat2:
         if st.button("⏹️ 진단 중단 및 OMR로 돌아가기"):
             st.session_state.student_stage = "OMR"
@@ -441,6 +558,19 @@ def render_interview_stage(client):
                     item = SAMPLE_QUESTIONS_TEXT[q_num]
                     q_context = f"\n[문항 세부 정보]\n- 지문: {item['passage']}\n- 발문: {item['question']}\n- 학생 선택 선지: {my_pick}번 ({item['options'].get(my_pick, '')})\n- 실제 정답 선지: {item['correct']}번 ({item['options'].get(item['correct'], '')})"
 
+                # 과거 누적 취약점 프로필 연동
+                past_profile = get_student_vulnerability_profile(student["student_id"])
+                past_context = ""
+                if past_profile.get("has_history") and past_profile.get("top_vulnerabilities"):
+                    top_str = ", ".join([f"'{t[0]}'({t[1]}회)" for t in past_profile["top_vulnerabilities"]])
+                    rules_sample = "; ".join([f"[{r['exam_title']} {r['q_num']}번: {r['action_rule']}]" for r in past_profile["action_rules"][-3:]]) if past_profile.get("action_rules") else "없음"
+                    past_context = f"""
+                [학생의 과거 누적 사고 오류 및 행동 원칙 기록]
+                - 이 학생({student['name']})은 이전 시험들에서 다음과 같은 사고 오류에 자주 빠진 이력이 있습니다: {top_str}
+                - 과거에 본인이 직접 수립했던 행동 원칙: {rules_sample}
+                - 지도 지침: 이번 문항에서도 학생이 과거의 고질적 취약 패턴({top_str})을 무의식적으로 되풀이했는지 관찰하고, 이전의 나쁜 독해 습관이나 미준수된 행동 원칙을 학생 스스로 깨닫도록 돕는 소크라테스식 질문을 던지십시오.
+                """
+
                 system_prompt = f"""
                 당신은 수능 국어 '사고 복원 전문 인터뷰어'입니다. 학생이 시험장에서 범한 인지 오류와 독해 습관을 스스로 깨닫도록 돕습니다.
                 
@@ -450,11 +580,12 @@ def render_interview_stage(client):
                 - 학생 풀이 상태: {status_label}
                 - 학생이 고른 선지: {my_pick}번
                 {q_context}
-                
+                {past_context}
                 [인터뷰어 핵심 행동 지침]
                 1. 절대 선지의 옳고 그름(정오)을 먼저 알려주거나 직접 해설 강의를 하지 마십시오.
                 2. 학생이 답변한 내용을 바탕으로, '지문의 어떤 문장을 어떻게 오독했는지', '선지의 특정 어휘를 임의로 왜곡했는지', '기억이 안 나서 지레짐작했는지'를 날카롭게 파고드는 질문을 '딱 1개'만 던지십시오.
-                3. 친절하지만 수능적 엄밀함을 유지하는 어조를 사용하십시오.
+                3. 학생의 과거 취약점 이력이 존재한다면, 그 습관이 이번에도 재현되었는지 성찰을 유도하십시오.
+                4. 친절하지만 수능적 엄밀함을 유지하는 어조를 사용하십시오.
                 """
 
                 gemini_contents = build_gemini_contents(st.session_state.chat_history)

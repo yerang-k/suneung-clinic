@@ -343,3 +343,70 @@ def get_submissions():
             return json.load(f)
     except Exception:
         return []
+
+def get_student_submissions(student_id: str):
+    """특정 학생의 진단 제출 기록 목록을 최신순으로 반환"""
+    all_subs = get_submissions()
+    s_id = str(student_id).strip()
+    student_subs = [s for s in all_subs if str(s.get("student_id", "")).strip() == s_id]
+    return sorted(student_subs, key=lambda x: x.get("timestamp", ""), reverse=True)
+
+def get_student_vulnerability_profile(student_id: str) -> dict:
+    """
+    학생의 과거 누적 진단 데이터를 종합 분석하여 프로필 생성:
+    - 총 응시 시험 수, 총 분석 문항 수
+    - 빈출 취약점 태그 TOP 3
+    - 누적 행동 원칙(Action Rules) 목록
+    - 최근 진단 이력
+    """
+    subs = get_student_submissions(student_id)
+    if not subs:
+        return {
+            "has_history": False,
+            "total_submissions": 0,
+            "total_questions": 0,
+            "top_vulnerabilities": [],
+            "tag_counts": {},
+            "action_rules": [],
+            "recent_exams": []
+        }
+
+    tag_counts = {}
+    action_rules = []
+    total_q = 0
+    recent_exams = []
+
+    for s in subs:
+        exam_title = s.get("exam_title", "시험")
+        ts = s.get("timestamp", "")
+        if exam_title not in recent_exams:
+            recent_exams.append(exam_title)
+            
+        for item in s.get("diagnosed_items", []):
+            total_q += 1
+            tag = item.get("error_tag", "").strip()
+            if tag:
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+            
+            rule = item.get("action_rule", "").strip()
+            if rule:
+                action_rules.append({
+                    "exam_title": exam_title,
+                    "q_num": item.get("q_num"),
+                    "error_tag": tag,
+                    "action_rule": rule,
+                    "timestamp": ts
+                })
+
+    sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)
+
+    return {
+        "has_history": True,
+        "total_submissions": len(subs),
+        "total_questions": total_q,
+        "top_vulnerabilities": sorted_tags[:3],
+        "tag_counts": tag_counts,
+        "action_rules": action_rules,
+        "recent_exams": recent_exams
+    }
+

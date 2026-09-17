@@ -5,7 +5,7 @@ from data_manager import (
     get_admin_config, save_admin_config,
     get_exams, save_exam, get_exam_pdf_base64,
     attach_pdf_to_exam, get_exam_pdf_source, delete_exam,
-    get_submissions
+    get_submissions, get_student_vulnerability_profile, get_student_submissions
 )
 from pdf_viewer import render_pdf_viewer
 
@@ -310,7 +310,41 @@ def render_admin_dashboard():
                 })
             st.dataframe(pd.DataFrame(rows), use_container_width=True)
 
-            with st.expander("🔍 학생별 상세 진단 결과 열람"):
+            st.divider()
+            st.markdown("##### 🎓 개별 학생 누적 취약점 및 행동 원칙 심층 조회")
+            student_list = get_students()
+            if student_list:
+                sel_stu_label = st.selectbox(
+                    "조회할 학생 선택",
+                    options=[f"{s['student_id']} - {s['name']}" for s in student_list],
+                    key="admin_sel_student_profile"
+                )
+                sel_sid = sel_stu_label.split(" - ")[0]
+                prof = get_student_vulnerability_profile(sel_sid)
+
+                if prof["has_history"]:
+                    ap1, ap2, ap3 = st.columns(3)
+                    with ap1:
+                        st.metric("총 진단 시험", f"{prof['total_submissions']}회")
+                    with ap2:
+                        st.metric("분석된 취약 문항", f"{prof['total_questions']}개")
+                    with ap3:
+                        top_t = prof['top_vulnerabilities'][0][0] if prof['top_vulnerabilities'] else "없음"
+                        top_c = prof['top_vulnerabilities'][0][1] if prof['top_vulnerabilities'] else 0
+                        st.metric("주요 취약점 1위", top_t, f"{top_c}회")
+
+                    st.markdown("**📌 이 학생의 취약점 분포:**")
+                    top_tags_line = " | ".join([f"**{t[0]}** ({t[1]}회)" for t in prof["top_vulnerabilities"]])
+                    st.write(top_tags_line)
+
+                    with st.expander(f"📖 {sel_stu_label} 학생이 수립한 행동 원칙 ({len(prof['action_rules'])}개)"):
+                        for r in prof["action_rules"]:
+                            st.markdown(f"- **[{r['exam_title']} {r['q_num']}번 ({r['error_tag']})]:** *\"{r['action_rule']}\"*")
+                else:
+                    st.info(f"선택한 학생({sel_stu_label})의 제출된 진단 기록이 아직 없습니다.")
+
+            st.divider()
+            with st.expander("🔍 전체 제출 건별 상세 진단 결과 열람"):
                 for idx, s in enumerate(reversed(subs)):
                     st.markdown(f"**[{s.get('timestamp')}] {s.get('student_name')}({s.get('student_id')}) - {s.get('exam_title')}**")
                     for d in s.get("diagnosed_items", []):

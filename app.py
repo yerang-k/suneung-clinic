@@ -11,7 +11,8 @@ from student_view import (
     render_student_login,
     render_omr_stage,
     render_interview_stage,
-    render_report_stage
+    render_report_stage,
+    render_student_mypage
 )
 
 # ==========================================
@@ -155,14 +156,23 @@ else:
         render_student_login()
     else:
         # 학생 인증 완료 상태
-        stage = st.session_state.get("student_stage", "OMR")
+        student_tab1, student_tab2 = st.tabs([
+            "✏️ 시험 진단실",
+            "📊 나의 누적 성장 리포트 (마이페이지)"
+        ])
         
-        if stage == "OMR":
-            render_omr_stage()
-        elif stage == "INTERVIEW":
-            if not client:
-                st.error("⚠️ AI 인터뷰를 진행하려면 왼쪽 사이드바에 Gemini API Key를 입력해야 합니다.")
-            else:
-                render_interview_stage(client)
-        elif stage == "REPORT":
-            render_report_stage(client)
+        with student_tab1:
+            stage = st.session_state.get("student_stage", "OMR")
+            
+            if stage == "OMR":
+                render_omr_stage()
+            elif stage == "INTERVIEW":
+                if not client:
+                    st.error("⚠️ AI 인터뷰를 진행하려면 왼쪽 사이드바에 Gemini API Key를 입력해야 합니다.")
+                else:
+                    render_interview_stage(client)
+            elif stage == "REPORT":
+                render_report_stage(client)
+
+        with student_tab2:
+            render_student_mypage()
