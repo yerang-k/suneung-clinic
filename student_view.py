@@ -11,7 +11,10 @@ from data_manager import (
     clear_student_progress
 )
 from pdf_viewer import render_pdf_viewer, render_csat_text_view
-from prescription_engine import get_prescription_problems, evaluate_student_defense
+from prescription_engine import (
+    get_prescription_problems, evaluate_student_defense,
+    find_indexed_problem, get_all_indexed_problems
+)
 from google.genai import types
 
 # 6대 사고 오류 전 항목에 대한 기본 추천 기출 DB
@@ -43,21 +46,42 @@ RECOMMENDATION_DB = {
 }
 
 SAMPLE_QUESTIONS_TEXT = {
-    27: {
-        "q_num": 27,
-        "passage": "앞줄의 아름드리나무 그늘 속에 숨어 있는 늦된 나무는 햇빛을 받지 못해 꽃을 늦게 피운다. (중략) 나도 늦된 나무처럼 천천히, 그러나 단단하게 뿌리를 내리며 나만의 꽃을 준비하고 있다.",
-        "question": "윗글에 대한 이해로 적절하지 않은 것은?",
+    4: {
+        "q_num": 4,
+        "genre": "독서 (독서론)",
+        "topic": "초인지 독서 전략과 능동적 의미 구성",
+        "passage": "독서는 글에 제시된 정보를 독자의 배경지식(스키마)과 결합하여 능동적으로 의미를 재구성하는 과정이다. 숙련된 독자는 글을 읽는 도중 자신의 이해 상태를 점검하는 상위인지(초인지) 전략을 유연하게 구사한다. 반면 초보 독자는 글의 표면적 어휘에만 집착하여 행간의 의미나 글쓴이의 숨겨진 집필 의도를 파악하는 데 어려움을 겪는다.",
+        "question": "윗글을 바탕으로 할 때, 상위인지 독서 전략에 대한 설명으로 가장 적절하지 않은 것은?",
         "options": {
-            1: "그늘은 늦된 나무가 다른 나무들로부터 자신의 몸을 감추기 위해 선택한 공간이다.",
-            2: "늦된 나무의 개화는 앞줄 나무들과의 생존 경쟁에서 비롯된 결과이다.",
-            3: "화자는 늦된 나무의 생태를 관찰하며 자신의 삶에 대한 성찰을 이끌어내고 있다.",
-            4: "아름드리나무는 늦된 나무와 대비되는 존재로, 외부적 환경의 한계를 상징한다.",
-            5: "꽃을 늦게 피우는 현상을 통해 지연의 가치를 긍정적으로 인식하고 있다."
+            1: "독자가 스스로 글에 대한 이해 여부를 평가하며 읽기 속도를 조절한다.",
+            2: "배경지식만을 맹신하여 글쓴이가 전달하려는 새로운 사실을 무시한다.",
+            3: "글의 표면적 진술 너머에 내재된 숨은 전제나 필자의 관점을 추론한다.",
+            4: "이해되지 않는 단락을 만났을 때 앞 문맥으로 돌아가 재독하는 전략을 취한다.",
+            5: "자신의 사전 지식과 텍스트의 정보를 상호 비교하며 능동적으로 의미를 형성한다."
         },
-        "correct": 1
+        "correct": 2,
+        "trap_concept": "지문에서 긍정적으로 설명한 배경지식의 역할을 선지에서 '배경지식만 맹신하여 텍스트를 무시한다'는 극단적 왜곡으로 변조한 함정"
+    },
+    9: {
+        "q_num": 9,
+        "genre": "독서 (과학 물리)",
+        "topic": "초전도 현상과 마이스너 효과",
+        "passage": "초전도체는 임계 온도 이하로 냉각될 때 전기 저항이 완전히 0이 되는 '초전도 현상'과, 내부의 자기장을 밖으로 밀어내는 '마이스너 효과'를 동시에 나타낸다. 제1종 초전도체는 임계 자기장을 넘어서면 순식간에 초전도 상태를 상실하지만, 제2종 초전도체는 하부 임계 자기장과 상부 임계 자기장 사이에서 양자화된 소용돌이(보텍스) 형태로 자기장이 침투하는 혼합 상태를 유지하여 더 강한 자기장에서도 초전도성을 보존한다.",
+        "question": "윗글의 초전도체에 대한 이해로 적절하지 않은 것은?",
+        "options": {
+            1: "제1종 초전도체는 임계 자기장보다 강한 자기장에서 즉시 상전도체로 전이된다.",
+            2: "마이스너 효과는 초전도체 내부로 외부 자기선속이 자유롭게 통과하는 현상이다.",
+            3: "제2종 초전도체는 혼합 상태에서 자기장의 일부 침투를 허용하면서도 초전도성을 유지한다.",
+            4: "초전도 현상은 물질이 임계 온도보다 낮게 냉각될 때 전기 저항이 소멸하는 것을 의미한다.",
+            5: "보텍스는 제2종 초전도체 내부를 관통하는 미세한 자기 소용돌이 구조이다."
+        },
+        "correct": 2,
+        "trap_concept": "지문의 '자기장을 밖으로 밀어낸다'는 배척 특성을 선지에서 '자유롭게 통과한다'고 정반대로 서술한 함정"
     },
     14: {
         "q_num": 14,
+        "genre": "독서 (기술)",
+        "topic": "데이터 전송과 패리티 부호",
         "passage": "데이터 전송 과정에서 잡음으로 인한 비트 반전을 검출하기 위해 패리티 비트를 추가한다. 홀수 패리티 방식은 전체 비트 중 1의 개수가 홀수가 되도록 검사 비트를 할당하며, 전송 중 1비트의 오류가 발생하면 즉시 검출할 수 있으나 2비트 동시 반전 오류는 정상 데이터로 오인하는 한계를 지닌다.",
         "question": "윗글을 바탕으로 추론한 내용으로 가장 적절한 것은?",
         "options": {
@@ -67,9 +91,117 @@ SAMPLE_QUESTIONS_TEXT = {
             4: "잡음의 세기가 커질수록 패리티 비트의 검출 한계는 짝수 비트로 이동한다.",
             5: "비트 반전이 3번 일어난 경우 홀수 패리티 방식으로는 오류를 검출할 수 없다."
         },
-        "correct": 3
+        "correct": 3,
+        "trap_concept": "2비트 동시 반전 시 검출 불가능한 한계를 무시하거나 자체 교정 능력이 없는 단순 패리티를 오류 정정 부호로 오해하도록 유도"
+    },
+    27: {
+        "q_num": 27,
+        "genre": "문학 (현대시)",
+        "topic": "늦된 나무의 생태와 지연의 가치 성찰",
+        "passage": "앞줄의 아름드리나무 그늘 속에 숨어 있는 늦된 나무는 햇빛을 받지 못해 꽃을 늦게 피운다. (중략) 나도 늦된 나무처럼 천천히, 그러나 단단하게 뿌리를 내리며 나만의 꽃을 준비하고 있다.",
+        "question": "윗글에 대한 이해로 적절하지 않은 것은?",
+        "options": {
+            1: "그늘은 늦된 나무가 다른 나무들로부터 자신의 몸을 감추기 위해 선택한 공간이다.",
+            2: "늦된 나무의 개화는 앞줄 나무들과의 생존 경쟁에서 비롯된 결과이다.",
+            3: "화자는 늦된 나무의 생태를 관찰하며 자신의 삶에 대한 성찰을 이끌어내고 있다.",
+            4: "아름드리나무는 늦된 나무와 대비되는 존재로, 외부적 환경의 한계를 상징한다.",
+            5: "꽃을 늦게 피우는 현상을 통해 지연의 가치를 긍정적으로 인식하고 있다."
+        },
+        "correct": 1,
+        "trap_concept": "지문에서 수동적 환경 조건(햇빛을 받지 못함)으로 제시된 '그늘'을, 늦된 나무가 능동적으로 '선택한 공간'인 것처럼 인과 주체를 왜곡함"
     }
 }
+
+def extract_text_from_exam_pdf(exam_id: str, page_num: int):
+    """로컬에 등록된 시험지 PDF가 있는 경우 해당 페이지 텍스트를 추출"""
+    import os
+    from data_manager import get_exam_pdf_path
+    path = get_exam_pdf_path(exam_id)
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        import pypdf
+        reader = pypdf.PdfReader(path)
+        if 1 <= page_num <= len(reader.pages):
+            return reader.pages[page_num - 1].extract_text()
+    except Exception:
+        pass
+    return None
+
+def get_question_full_context(exam_info: dict, q_num: int):
+    """
+    해당 문항의 전체 지문, 발문, 선지, 정답, 함정 개념을 3중 체계로 조회합니다:
+    1. prescription_engine의 6대 취약점 대표 기출 인덱스 (PAST_EXAM_QUESTION_INDEX)
+    2. SAMPLE_QUESTIONS_TEXT (내장 수능 핵심 기출 DB)
+    3. 로컬 PDF 파일 텍스트 추출 (있는 경우)
+    """
+    exam_id = exam_info.get("exam_id", "") if exam_info else ""
+    
+    # 1. prescription_engine 기출 인덱스 검색
+    prob = find_indexed_problem(exam_id, q_num)
+    if prob and prob.get("passage"):
+        opts = {}
+        for k, v in prob.get("options", {}).items():
+            try:
+                opts[int(k)] = v
+            except ValueError:
+                opts[k] = v
+        return {
+            "q_num": q_num,
+            "passage": prob["passage"],
+            "question": prob.get("question", "윗글을 바탕으로 추론한 내용으로 가장 적절하지 않은 것은?"),
+            "options": opts,
+            "correct": prob.get("correct", 1),
+            "trap_concept": prob.get("trap_concept", "지문 조건 왜곡 및 인과 전도"),
+            "genre": prob.get("genre", "국어영역"),
+            "topic": prob.get("topic", f"{q_num}번 문항 핵심 제재"),
+            "mission": prob.get("mission", "선지의 서술어가 지문과 일치하는지 단어 단위로 검증할 것")
+        }
+
+    # 2. SAMPLE_QUESTIONS_TEXT 검색
+    if q_num in SAMPLE_QUESTIONS_TEXT:
+        item = dict(SAMPLE_QUESTIONS_TEXT[q_num])
+        if "genre" not in item:
+            item["genre"] = "국어영역"
+        if "topic" not in item:
+            item["topic"] = f"{q_num}번 핵심 개념"
+        if "trap_concept" not in item:
+            item["trap_concept"] = "지문의 세부 서술어를 살짝 비틀어 오답을 유도한 평가원 함정"
+        return item
+
+    # 3. 로컬 PDF 텍스트 추출
+    approx_page = min(max(1, (q_num - 1) // 3 + 1), 16)
+    pdf_text = extract_text_from_exam_pdf(exam_id, approx_page)
+    if pdf_text and len(pdf_text.strip()) > 50:
+        return {
+            "q_num": q_num,
+            "passage": pdf_text[:1200],
+            "question": f"{exam_info.get('title', '국어')} {q_num}번 문항",
+            "options": {},
+            "correct": 1,
+            "trap_concept": "지문 문맥과 선지 조건의 인과 전도 및 부분적 사실 왜곡",
+            "genre": "국어영역",
+            "topic": f"{q_num}번 문항",
+            "mission": "지문 원문으로 돌아가 핵심 서술어를 1:1로 확인할 것"
+        }
+
+    return None
+
+def build_initial_interview_question(exam_info, q_num, status_label, my_pick):
+    """지문과 선지의 구체적 내용을 인용한 첫 질문 생성"""
+    q_item = get_question_full_context(exam_info, q_num)
+    if q_item and q_item.get("passage") and q_item.get("options"):
+        opts = q_item.get("options", {})
+        opt_text = opts.get(my_pick, opts.get(str(my_pick), ''))
+        passage = q_item.get("passage", "")
+        first_sentence = passage.split(".")[0].strip() if "." in passage else passage[:50].strip()
+        
+        if opt_text:
+            return f"**{q_num}번** 문항이야. [{status_label}] 상태로 **{my_pick}번 선지(「{opt_text}」)**를 골랐네. 지문의 「*{first_sentence}*」 내용과 관련하여, 시험 당시 어떤 생각이나 근거로 이 선지를 답으로 판단했는지 핵심만 단도직입적으로 말해줘."
+        else:
+            return f"**{q_num}번** 문항이야. [{status_label}] 상태로 **{my_pick}번**을 골랐네. 지문의 「*{first_sentence}*」 내용과 관련하여, 시험 당시 어떤 근거로 {my_pick}번을 답으로 판단했는지 핵심만 말해줘."
+    else:
+        return f"**{q_num}번** 문항이야. [{status_label}] 상태로 **{my_pick}번**을 골랐네. 시험 당시 지문의 몇 문단, 어떤 핵심 문장이나 선지의 특정 어휘 때문에 {my_pick}번이 맞다고 판단했는지 지문 내용을 들어 핵심만 말해줘."
 
 def build_gemini_contents(chat_history):
     """
@@ -737,9 +869,10 @@ def render_omr_stage():
             # 첫 번째 문항 인터뷰 세팅
             first_q = vulnerable_rows[0]
             st.session_state.interview_step = "CHAT"
+            first_q_msg = build_initial_interview_question(cur_exam, first_q['q_num'], first_q['status'], first_q['my_pick'])
             st.session_state.chat_history = [{
                 "role": "assistant",
-                "content": f"**{first_q['q_num']}번** 문항을 [{first_q['status']}] 상태로 **{first_q['my_pick']}번**을 골랐네. 시험장에서 지문의 어떤 표현이나 선지 어휘 때문에 {first_q['my_pick']}번이 맞다고 판단했는지 핵심만 단도직입적으로 말해줘."
+                "content": first_q_msg
             }]
             st.session_state.draft_summary = ""
             st.session_state.current_analysis = None
@@ -748,10 +881,32 @@ def render_omr_stage():
 
 def get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick):
     """사고 복원 인터뷰어용 맞춤형 시스템 프롬프트 생성"""
+    q_item = get_question_full_context(exam_info, q_num)
+
     q_context = ""
-    if q_num in SAMPLE_QUESTIONS_TEXT:
-        item = SAMPLE_QUESTIONS_TEXT[q_num]
-        q_context = f"\n[문항 세부 정보]\n- 지문: {item['passage']}\n- 발문: {item['question']}\n- 학생 선택 선지: {my_pick}번 ({item['options'].get(my_pick, '')})\n- 실제 정답 선지: {item['correct']}번 ({item['options'].get(item['correct'], '')})"
+    if q_item and q_item.get("passage"):
+        opts = q_item.get("options", {})
+        opt_text = opts.get(my_pick, opts.get(str(my_pick), '선지 텍스트 미등록'))
+        corr_num = q_item.get('correct', '')
+        corr_text = opts.get(corr_num, opts.get(str(corr_num), '')) if corr_num else ''
+        q_context = f"""
+[문항 실제 지문 및 선지 정밀 텍스트]
+- 제재 및 주제: {q_item.get('genre', '국어')} | {q_item.get('topic', '')}
+- 지문 원문:
+\"\"\"{q_item.get('passage', '')}\"\"\"
+- 발문: {q_item.get('question', '')}
+- 학생이 선택한 오답 선지: {my_pick}번 (선지 내용: "{opt_text}")
+- 실제 정답 선지: {corr_num}번 (선지 내용: "{corr_text}")
+- 평가원의 함정 설계 원리: {q_item.get('trap_concept', '지문 조건 왜곡 및 인과 전도')}
+"""
+    else:
+        q_context = f"""
+[문항 기본 정보]
+- 시험명: {exam_info.get('title', '')}
+- 문항 번호: {q_num}번
+- 학생이 고른 선지: {my_pick}번 (풀이 상태: {status_label})
+- 지침: 문항 텍스트가 인앱에 미등록된 경우 학생에게 지문의 핵심 어휘와 문장을 직접 질문하여 끄집어내십시오.
+"""
 
     past_profile = get_student_vulnerability_profile(student["student_id"])
     past_context = ""
@@ -759,28 +914,44 @@ def get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick
         top_str = ", ".join([f"'{t[0]}'({t[1]}회)" for t in past_profile["top_vulnerabilities"]])
         rules_sample = "; ".join([f"[{r['exam_title']} {r['q_num']}번: {r['action_rule']}]" for r in past_profile["action_rules"][-3:]]) if past_profile.get("action_rules") else "없음"
         past_context = f"""
-    [학생의 과거 누적 사고 오류 및 행동 원칙 기록]
-    - 이 학생({student['name']})은 이전 시험들에서 다음과 같은 사고 오류에 자주 빠진 이력이 있습니다: {top_str}
-    - 과거에 본인이 직접 수립했던 행동 원칙: {rules_sample}
-    - 지도 지침: 이번 문항에서도 학생이 과거의 고질적 취약 패턴({top_str})을 무의식적으로 되풀이했는지 관찰하고, 이전의 나쁜 독해 습관이나 미준수된 행동 원칙을 학생 스스로 깨닫도록 돕는 소크라테스식 질문을 던지십시오.
-    """
+[학생의 과거 누적 사고 오류 및 행동 원칙 기록]
+- 이 학생({student['name']})의 고질적 취약 패턴: {top_str}
+- 과거에 수립했던 행동 원칙: {rules_sample}
+- 지도 지침: 이번 문항에서도 동일한 취약 패턴({top_str})을 되풀이했는지 점검하십시오.
+"""
 
     return f"""
-    당신은 수능 국어 '사고 복원 전문 인터뷰어'입니다. 학생이 시험장에서 범한 인지 오류와 독해 습관을 스스로 깨닫도록 돕습니다.
-    
-    [현재 분석 문항]
-    - 시험: {exam_info['title']}
-    - 문항 번호: {q_num}번
-    - 학생 풀이 상태: {status_label}
-    - 학생이 고른 선지: {my_pick}번
-    {q_context}
-    {past_context}
-    [인터뷰어 핵심 행동 지침 - ⚡ 스피디 & 단도직입 수능 코칭 원칙]
-    1. [시간 절약 최우선]: 수험생은 마음이 급합니다. 장황한 인사말, 격려, 칭찬, 불필요한 미사여구는 '일절 생략'하고 곧바로 본론 질문으로 들어가십시오.
-    2. [정오 판별 누설 금지]: 선지가 맞았는지 틀렸는지 먼저 가르쳐주거나 강의식 해설을 하지 마십시오.
-    3. [급소를 찌르는 1문장 질문]: 학생의 답변을 바탕으로, '지문의 어떤 문장을 왜곡했는지' 또는 '선지의 어휘를 어떻게 오독했는지' 허점을 찌르는 질문을 '딱 1~2문장 (공백 포함 150자 이내)'으로 신속하게 던지십시오.
-    4. [단호하고 스피디한 톤]: 느긋하거나 여유로운 태도는 금물입니다. 실전 수능 코치처럼 직관적이고 스피디하게 사고의 허점을 파고드십시오.
-    """
+당신은 대한민국 최고 수준의 수능 국어 '사고 복원 전문 인터뷰어'입니다.
+학생이 시험장에서 범한 독해 인지 왜곡과 추론의 오류를 학생 스스로 깨닫도록 이끕니다.
+
+[현재 분석 문항]
+- 시험: {exam_info.get('title', '')}
+- 문항 번호: {q_num}번
+- 학생 풀이 상태: {status_label}
+- 학생이 고른 선지: {my_pick}번
+{q_context}
+{past_context}
+
+[★ 최우선 핵심 행동 지침: 지문의 구체적 내용 인용 필수 (뜬구름 잡는 일반론 금지)]
+1. [지문 내용 직접 인용]:
+   - 학생의 답변에 반응하거나 질문할 때, **반드시 지문의 구체적 문장, 핵심 어휘, 조건절, 인과관계를 큰따옴표(\"...\")로 직접 인용**하십시오!
+   - 절대 "왜 그렇게 생각했나요?" 같은 추상적 사고 질문만 던지지 마십시오.
+   - 예시:
+     - *"지문에서 '**A는 B와 비례하지 않고 C에 반비례한다**'고 명시했는데, 학생은 선지의 '**B가 커질수록 A도 증가한다**'는 해석을 왜 맞다고 보았나요?"*
+     - *"지문에서는 '**충렬이 황성을 지키기 위해 출전했다**'고 했는데, {my_pick}번 선지의 '**가문의 복수를 위해 군사를 요청했다**'는 내용은 지문의 어디에 근거한 생각인가요?"*
+     - *"지문 속 '**2비트 동시 반전 오류는 검출할 수 없다**'는 내용과, 학생이 고른 선지의 '**자체 교정을 수행한다**' 사이에 어떤 오해가 있었나요?"*
+
+2. [정오 판별 일방적 누설 금지]:
+   - "그건 틀렸습니다", "정답은 3번입니다" 같은 일방적 정답 누설이나 강의식 해설은 하지 마십시오.
+   - 학생이 자신이 고른 선지와 지문의 실제 텍스트가 어떻게 어긋났는지 스스로 입으로 시인하도록 유도하십시오.
+
+3. [지문 텍스트가 부분적인 문항일 때의 대응 요령]:
+   - 학생에게 "지문의 어느 단락/어떤 핵심 어휘를 보고 그렇게 판단했나요? 지문의 실제 문장을 1개만 들어보세요."라고 지문 팩트 확인을 먼저 요구하고, 학생이 제시한 어휘를 바탕으로 지문과 선지의 괴리를 짚으십시오.
+
+4. [⚡ 스피디 & 단도직입 원칙]:
+   - 수험생은 마음이 급합니다. 불필요한 인사말, 칭찬, 위로, 서론은 일절 생략하고 곧바로 팩트 대조 질문으로 들어가십시오.
+   - 질문은 1~2문장(공백 포함 150자 이내)으로 신속하고 명쾌하게 던지십시오.
+"""
 
 # ==========================================
 # 3. 순차 사고 복원 인터뷰 뷰 (Queue Runner)
@@ -834,9 +1005,10 @@ def render_interview_stage(client):
                     else:
                         st.session_state.interview_step = "CHAT"
                         st.session_state.current_analysis = None
+                        jump_msg = build_initial_interview_question(exam_info, target_q['q_num'], target_q['status'], target_q['my_pick'])
                         st.session_state.chat_history = [{
                             "role": "assistant",
-                            "content": f"**{target_q['q_num']}번** 문항이야. [{target_q['status']}] 상태로 **{target_q['my_pick']}번**을 고른 당시 생각의 근거를 단도직입적으로 말해줘."
+                            "content": jump_msg
                         }]
                     save_current_student_progress()
                     st.rerun()
@@ -875,15 +1047,17 @@ def render_interview_stage(client):
             else:
                 st.info(f"선생님이 아직 '{exam_info['title']}'의 원문 PDF를 등록하지 않았습니다. [문항 텍스트 집중 보기] 탭을 확인해 주세요.")
                 with st.container(height=VIEWER_HEIGHT):
-                    if q_num in SAMPLE_QUESTIONS_TEXT:
-                        render_csat_text_view(SAMPLE_QUESTIONS_TEXT[q_num], my_pick, status_label)
+                    q_ctx_fallback = get_question_full_context(exam_info, q_num)
+                    if q_ctx_fallback and q_ctx_fallback.get("passage"):
+                        render_csat_text_view(q_ctx_fallback, my_pick, status_label)
                     else:
                         st.write(f"**{q_num}번 문항 원문을 책상 위 종이 시험지에서 확인해 주세요.**")
 
         with tab_text:
             with st.container(height=VIEWER_HEIGHT):
-                if q_num in SAMPLE_QUESTIONS_TEXT:
-                    render_csat_text_view(SAMPLE_QUESTIONS_TEXT[q_num], my_pick, status_label)
+                q_ctx_full = get_question_full_context(exam_info, q_num)
+                if q_ctx_full and q_ctx_full.get("passage"):
+                    render_csat_text_view(q_ctx_full, my_pick, status_label)
                 else:
                     st.write(f"현재 등록된 텍스트 지문이 없습니다. 오프라인 시험지의 **{q_num}번 문항**을 함께 보면서 진행해주세요.")
 
@@ -938,7 +1112,12 @@ def render_interview_stage(client):
                 if st.button("📝 대화 종료 및 내 사고 요약안 작성하기", use_container_width=True, type="primary"):
                     with chat_box:
                         with st.spinner("당시 사고 경로를 1인칭으로 요약 중입니다..."):
-                            summary_prompt = "지금까지의 대화 전문을 바탕으로, 학생이 시험장에서 해당 선지를 고르게 된 '인지 왜곡 및 사고 경로'를 1~2문장으로 요약해 주십시오. 1인칭('나는 ~라고 생각하여 ~했다') 시점으로 작성하세요."
+                            q_item_ctx = get_question_full_context(exam_info, q_num)
+                            passage_ref = f"(지문 제재: {q_item_ctx.get('genre', '')} / 주제: {q_item_ctx.get('topic', '')})" if q_item_ctx else ""
+                            summary_prompt = f"""
+지금까지의 대화 전문과 지문 텍스트를 바탕으로, 학생이 시험장에서 해당 선지를 고르게 된 '인지 왜곡 및 사고 경로'를 1~2문장으로 명확히 요약해 주십시오. {passage_ref}
+지문의 구체적 내용이나 오독한 핵심 어휘를 직접 언급하며, 1인칭('나는 지문의 ~라는 내용을 ~라고 잘못 생각하여 ~했다') 시점으로 작성하세요.
+"""
                             contents_for_summary = build_gemini_contents(st.session_state.chat_history)
                             contents_for_summary.append(types.Content(
                                 role="user",

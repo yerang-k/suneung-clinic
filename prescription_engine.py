@@ -301,6 +301,36 @@ def get_prescription_problems(error_tag: str):
     """오류 태그에 맞는 맞춤형 기출 문항 리스트를 반환합니다."""
     return PAST_EXAM_QUESTION_INDEX.get(error_tag, [])
 
+def get_all_indexed_problems():
+    """모든 오류 유형에 포함된 대표 기출 문항을 단일 리스트로 반환합니다."""
+    results = []
+    seen = set()
+    for tag, probs in PAST_EXAM_QUESTION_INDEX.items():
+        for p in probs:
+            if p["id"] not in seen:
+                seen.add(p["id"])
+                p_copy = dict(p)
+                p_copy["error_tag"] = tag
+                results.append(p_copy)
+    return results
+
+def find_indexed_problem(exam_id: str, q_num: int):
+    """
+    시험 ID와 문항 번호로 기출 문항 메타데이터를 검색합니다.
+    1순위: exam_id와 q_num이 모두 일치
+    2순위: q_num이 일치하는 첫 번째 대표 문항
+    """
+    all_probs = get_all_indexed_problems()
+    # 1순위: 시험 ID & 번호 일치
+    for p in all_probs:
+        if p.get("exam_id") == exam_id and p.get("q_num") == q_num:
+            return p
+    # 2순위: 번호 일치
+    for p in all_probs:
+        if p.get("q_num") == q_num:
+            return p
+    return None
+
 def evaluate_student_defense(client, problem_info: dict, student_defense: str):
     """
     학생이 방어 미션에 맞추어 작성한 선지 판단 근거를 Gemini AI가 실시간 평가하고 코칭을 제공합니다.
