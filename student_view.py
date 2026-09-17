@@ -6,7 +6,8 @@ import pandas as pd
 from data_manager import (
     verify_student, get_exams, get_exam_pdf_base64,
     get_exam_pdf_source, get_admin_config, save_submission,
-    get_student_submissions, get_student_vulnerability_profile
+    get_student_submissions, get_student_vulnerability_profile,
+    call_gemini_safe
 )
 from pdf_viewer import render_pdf_viewer, render_csat_text_view
 from prescription_engine import get_prescription_problems, evaluate_student_defense
@@ -592,8 +593,8 @@ def render_interview_stage(client):
 
                 with st.spinner("생각의 경로를 분석 중입니다..."):
                     try:
-                        response = client.models.generate_content(
-                            model='gemini-2.5-flash',
+                        response = call_gemini_safe(
+                            client,
                             contents=gemini_contents,
                             config=types.GenerateContentConfig(
                                 system_instruction=system_prompt,
@@ -613,8 +614,8 @@ def render_interview_stage(client):
                         contents_for_summary = build_gemini_contents(st.session_state.chat_history)
                         contents_for_summary.append({"role": "user", "parts": [{"text": summary_prompt}]})
                         try:
-                            summary_res = client.models.generate_content(
-                                model='gemini-2.5-flash',
+                            summary_res = call_gemini_safe(
+                                client,
                                 contents=contents_for_summary
                             )
                             st.session_state.draft_summary = summary_res.text
@@ -643,8 +644,8 @@ def render_interview_stage(client):
                     }}
                     """
                     try:
-                        json_res = client.models.generate_content(
-                            model='gemini-2.5-flash',
+                        json_res = call_gemini_safe(
+                            client,
                             contents=json_prompt,
                             config=types.GenerateContentConfig(
                                 response_mime_type="application/json",

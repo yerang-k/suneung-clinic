@@ -1,6 +1,7 @@
 import re
 import json
 from google.genai import types
+from data_manager import call_gemini_safe
 
 # 최근 3개년 평가원 기출 전 문항 중 6대 사고 오류별 대표 기출 문항 메타데이터 인덱스
 # full PDF에서 해당 문제가 위치한 페이지(page) 번호와 구체적 방어 미션 내장
@@ -203,8 +204,8 @@ def evaluate_student_defense(client, problem_info: dict, student_defense: str):
 
     prompt = f"학생이 작성한 방어 훈련 내용:\n\"{student_defense}\"\n\n위 내용에 대해 맞춤 코칭 피드백을 작성해 주세요."
 
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
+    response = call_gemini_safe(
+        client,
         contents=prompt,
         config=types.GenerateContentConfig(
             system_instruction=system_prompt,
