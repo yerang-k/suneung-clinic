@@ -1,0 +1,17 @@
+[
+  {
+    "student_id": "30101",
+    "name": "김수험",
+    "password": "1234"
+  },
+  {
+    "student_id": "30102",
+    "name": "이국어",
+    "password": "1234"
+  },
+  {
+    "student_id": "30103",
+    "name": "박수능",
+    "password": "1234"
+  }
+]

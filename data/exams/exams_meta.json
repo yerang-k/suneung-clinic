@@ -1,0 +1,16 @@
+{
+  "2027_06_mock": {
+    "exam_id": "2027_06_mock",
+    "title": "2027학년도 6월 모의평가 국어영역",
+    "total_questions": 45,
+    "pdf_filename": "",
+    "created_at": "2026-06-01"
+  },
+  "2026_09_mock": {
+    "exam_id": "2026_09_mock",
+    "title": "2026학년도 9월 모의평가 국어영역",
+    "total_questions": 45,
+    "pdf_filename": "",
+    "created_at": "2026-09-01"
+  }
+}

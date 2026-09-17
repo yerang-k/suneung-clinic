@@ -1,0 +1,12 @@
+{
+  "admin_password": "teacher1234",
+  "drive_links": {
+    "선지 임의 변형": "https://drive.google.com/drive/folders/sample-tag1-modification",
+    "선지 후반부 검증 생략": "https://drive.google.com/drive/folders/sample-tag2-omission",
+    "기억 부재의 부재화": "https://drive.google.com/drive/folders/sample-tag3-memory",
+    "적용 조건 혼동": "https://drive.google.com/drive/folders/sample-tag4-condition",
+    "관계어·논리 왜곡": "https://drive.google.com/drive/folders/sample-tag5-logic",
+    "과잉 인과 생성": "https://drive.google.com/drive/folders/sample-tag6-causality"
+  },
+  "gas_api_url": ""
+}
