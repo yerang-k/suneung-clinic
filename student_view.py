@@ -8,7 +8,8 @@ from data_manager import (
     get_exam_pdf_source, get_admin_config, save_submission,
     get_student_submissions, get_student_vulnerability_profile,
     call_gemini_safe, save_student_progress, get_student_progress,
-    clear_student_progress
+    clear_student_progress, get_effective_api_key,
+    save_student_api_key, clear_student_api_key
 )
 from pdf_viewer import render_pdf_viewer, render_csat_text_view
 from prescription_engine import (
@@ -465,8 +466,33 @@ def render_student_login():
                             missing.append("비밀번호")
                         st.warning(f"⚠️ {', '.join(missing)}을(를) 입력해 주세요.")
             
+            # 학생 로그인 화면 내 Gemini API 키 직접 설정/확인 칸
+            saved_key, key_source = get_effective_api_key()
+            with st.expander("🔑 Gemini API Key 설정 (학생 개별 키)", expanded=(not bool(saved_key))):
+                login_user_key = st.text_input(
+                    "Gemini API Key",
+                    value=saved_key,
+                    type="password",
+                    placeholder="AI Studio 키를 입력하세요",
+                    key="login_user_api_key"
+                )
+                col_lk1, col_lk2 = st.columns([1.3, 1])
+                with col_lk1:
+                    if st.button("💾 이 기기에 저장", key="btn_save_login_user_key", use_container_width=True, type="primary"):
+                        if login_user_key.strip():
+                            save_student_api_key(login_user_key.strip())
+                            st.success("API 키가 저장되었습니다!")
+                            st.rerun()
+                        else:
+                            st.warning("API 키를 입력해 주세요.")
+                with col_lk2:
+                    if st.button("🗑️ 키 삭제", key="btn_clear_login_user_key", use_container_width=True):
+                        clear_student_api_key()
+                        st.info("저장된 API 키가 삭제되었습니다.")
+                        st.rerun()
+
             st.write("")
-            if st.button("🔒 선생님 관리자 페이지 (?mode=admin)", key="btn_switch_admin", use_container_width=True):
+            if st.button("🔒 선생님 관리자 페이지", key="btn_switch_admin", use_container_width=True):
                 st.query_params["mode"] = "admin"
                 st.session_state.app_mode = "ADMIN"
                 st.rerun()

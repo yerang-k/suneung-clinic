@@ -14,7 +14,7 @@ def render_admin_dashboard():
     col_t1, col_t2 = st.columns([3, 1.2])
     with col_t1:
         st.title("🔒 교사용 관리자 모드")
-        st.caption("학생 계정, 시험지 원문 PDF 및 취약점 유형별 구글 드라이브 처방 링크를 관리합니다. (전용 URL: `?mode=admin`)")
+        st.caption("학생 계정, 시험지 원문 PDF 및 취약점 유형별 구글 드라이브 처방 링크를 관리합니다.")
     with col_t2:
         st.write("")
         if st.button("🎓 학생 학습 화면으로 나가기", use_container_width=True):
