@@ -586,30 +586,71 @@ def get_student_vulnerability_profile(student_id: str) -> dict:
 
 def call_gemini_safe(client, contents, config=None):
     """
-    Gemini 모델 호출 시 404 NOT_FOUND를 방지하기 위해
-    Google 정식 주력 모델들을 순차적으로 자동 시도합니다.
+    Gemini 모델 호출 시 404 NOT_FOUND 및 일시적 오류를 방지하기 위해
+    Google 주력 모델들을 스마트하게 순차 시도하고, 상세 진단 정보를 제공합니다.
     """
-    candidate_models = [
+    if client is None:
+        raise ValueError("Gemini API 클라이언트가 초기화되지 않았습니다. 사이드바에 API 키를 입력해 주세요.")
+
+    # 1. 시도할 후보 모델 목록 (최신 2.5 및 2.0, 1.5 계열)
+    default_candidates = [
+        "gemini-2.5-flash",
         "gemini-2.0-flash",
         "gemini-1.5-flash",
         "gemini-1.5-pro",
-        "models/gemini-2.0-flash",
-        "models/gemini-1.5-flash"
+        "gemini-2.0-flash-lite",
+        "gemini-2.5-pro"
     ]
-    last_err = None
-    for m in candidate_models:
+
+    candidate_models = list(default_candidates)
+
+    # 2. 가능한 경우 API 키가 접근 가능한 실제 모델 목록을 동적으로 탐색
+    try:
+        available_models = []
+        for m in client.models.list():
+            m_name = getattr(m, "name", str(m)).replace("models/", "")
+            if "gemini" in m_name.lower():
+                available_models.append(m_name)
+        if available_models:
+            # 주력 모델 우선순위대로 정렬하여 재배치
+            priority_order = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+            sorted_available = []
+            for p in priority_order:
+                if p in available_models:
+                    sorted_available.append(p)
+            for m_name in available_models:
+                if m_name not in sorted_available:
+                    sorted_available.append(m_name)
+            if sorted_available:
+                candidate_models = sorted_available
+    except Exception:
+        # models.list 권한이 없거나 제한된 키의 경우 기본 후보군 유지
+        pass
+
+    attempted_log = []
+    
+    for raw_m in candidate_models:
+        model_id = raw_m.replace("models/", "").strip()
         try:
             if config is not None:
-                return client.models.generate_content(model=m, contents=contents, config=config)
+                return client.models.generate_content(model=model_id, contents=contents, config=config)
             else:
-                return client.models.generate_content(model=m, contents=contents)
+                return client.models.generate_content(model=model_id, contents=contents)
         except Exception as e:
-            err_msg = str(e)
-            if "404" in err_msg or "NOT_FOUND" in err_msg or "no longer available" in err_msg:
-                last_err = e
-                continue
-            raise e
-    if last_err:
-        raise last_err
+            err_msg = str(e).strip()
+            attempted_log.append(f"• 모델 '{model_id}': {err_msg}")
+            # 404/NOT_FOUND/권한/일시적 오류 발생 시 다음 후보 모델 시도
+            continue
+
+    # 모든 후보 모델 호출 실패 시 상세한 원인 리포트 생성
+    error_summary = "\n".join(attempted_log)
+    raise RuntimeError(
+        f"Gemini AI 모델 호출에 실패했습니다.\n\n"
+        f"[시도한 모델 및 응답 결과]\n{error_summary}\n\n"
+        f"💡 확인 가이드:\n"
+        f"1. Google AI Studio(https://aistudio.google.com)에서 API 키가 활성화되어 있는지 확인해 주세요.\n"
+        f"2. 무료 티어 키의 경우 분당 호출 제한(RPM) 또는 일일 할당량(Quota) 초과 여부를 확인해 주세요.\n"
+        f"3. 왼쪽 사이드바에서 새 API 키로 교체 후 다시 시도하실 수 있습니다."
+    )
 
 

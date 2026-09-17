@@ -71,18 +71,28 @@ SAMPLE_QUESTIONS_TEXT = {
 }
 
 def build_gemini_contents(chat_history):
+    """
+    대화 기록을 google-genai SDK의 표준 types.Content 구조로 변환합니다.
+    """
     contents = []
     for idx, msg in enumerate(chat_history):
-        role = "model" if msg["role"] == "assistant" else "user"
+        role = "model" if msg.get("role") == "assistant" else "user"
+        text = str(msg.get("content", "")).strip()
+        if not text:
+            continue
         if idx == 0 and role == "model":
-            contents.append({
-                "role": "user",
-                "parts": [{"text": "시험 당시 제 사고 과정을 복원하고 싶습니다. 인터뷰를 시작해 주세요."}]
-            })
-        contents.append({
-            "role": role,
-            "parts": [{"text": msg["content"]}]
-        })
+            contents.append(
+                types.Content(
+                    role="user",
+                    parts=[types.Part.from_text(text="시험 당시 제 사고 과정을 복원하고 싶습니다. 인터뷰를 시작해 주세요.")]
+                )
+            )
+        contents.append(
+            types.Content(
+                role=role,
+                parts=[types.Part.from_text(text=text)]
+            )
+        )
     return contents
 
 def safe_parse_json(text: str):
@@ -484,6 +494,42 @@ def render_omr_stage():
             st.session_state.current_analysis = None
             st.rerun()
 
+def get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick):
+    """사고 복원 인터뷰어용 맞춤형 시스템 프롬프트 생성"""
+    q_context = ""
+    if q_num in SAMPLE_QUESTIONS_TEXT:
+        item = SAMPLE_QUESTIONS_TEXT[q_num]
+        q_context = f"\n[문항 세부 정보]\n- 지문: {item['passage']}\n- 발문: {item['question']}\n- 학생 선택 선지: {my_pick}번 ({item['options'].get(my_pick, '')})\n- 실제 정답 선지: {item['correct']}번 ({item['options'].get(item['correct'], '')})"
+
+    past_profile = get_student_vulnerability_profile(student["student_id"])
+    past_context = ""
+    if past_profile.get("has_history") and past_profile.get("top_vulnerabilities"):
+        top_str = ", ".join([f"'{t[0]}'({t[1]}회)" for t in past_profile["top_vulnerabilities"]])
+        rules_sample = "; ".join([f"[{r['exam_title']} {r['q_num']}번: {r['action_rule']}]" for r in past_profile["action_rules"][-3:]]) if past_profile.get("action_rules") else "없음"
+        past_context = f"""
+    [학생의 과거 누적 사고 오류 및 행동 원칙 기록]
+    - 이 학생({student['name']})은 이전 시험들에서 다음과 같은 사고 오류에 자주 빠진 이력이 있습니다: {top_str}
+    - 과거에 본인이 직접 수립했던 행동 원칙: {rules_sample}
+    - 지도 지침: 이번 문항에서도 학생이 과거의 고질적 취약 패턴({top_str})을 무의식적으로 되풀이했는지 관찰하고, 이전의 나쁜 독해 습관이나 미준수된 행동 원칙을 학생 스스로 깨닫도록 돕는 소크라테스식 질문을 던지십시오.
+    """
+
+    return f"""
+    당신은 수능 국어 '사고 복원 전문 인터뷰어'입니다. 학생이 시험장에서 범한 인지 오류와 독해 습관을 스스로 깨닫도록 돕습니다.
+    
+    [현재 분석 문항]
+    - 시험: {exam_info['title']}
+    - 문항 번호: {q_num}번
+    - 학생 풀이 상태: {status_label}
+    - 학생이 고른 선지: {my_pick}번
+    {q_context}
+    {past_context}
+    [인터뷰어 핵심 행동 지침]
+    1. 절대 선지의 옳고 그름(정오)을 먼저 알려주거나 직접 해설 강의를 하지 마십시오.
+    2. 학생이 답변한 내용을 바탕으로, '지문의 어떤 문장을 어떻게 오독했는지', '선지의 특정 어휘를 임의로 왜곡했는지', '기억이 안 나서 지레짐작했는지'를 날카롭게 파고드는 질문을 '딱 1개'만 던지십시오.
+    3. 학생의 과거 취약점 이력이 존재한다면, 그 습관이 이번에도 재현되었는지 성찰을 유도하십시오.
+    4. 친절하지만 수능적 엄밀함을 유지하는 어조를 사용하십시오.
+    """
+
 # ==========================================
 # 3. 순차 사고 복원 인터뷰 뷰 (Queue Runner)
 # ==========================================
@@ -544,51 +590,53 @@ def render_interview_stage(client):
         if st.session_state.interview_step == "CHAT":
             st.subheader("💬 AI 사고 복원 인터뷰")
             
+            # 이전 대화 렌더링
             for msg in st.session_state.chat_history:
                 with st.chat_message(msg["role"]):
                     st.write(msg["content"])
 
+            # 🚨 에러가 발생한 경우 화면에 고정 표시 (사라지지 않음)
+            if st.session_state.get("last_chat_error"):
+                st.error("⚠️ **AI 인터뷰 질문 생성 중 오류가 발생했습니다.**")
+                with st.expander("🔍 오류 상세 내역 확인하기 (클릭)", expanded=True):
+                    st.code(st.session_state["last_chat_error"], language="text")
+                
+                col_retry, col_close = st.columns([1.5, 1])
+                with col_retry:
+                    # 학생의 마지막 발화가 있으면 바로 재시도 가능
+                    if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "user":
+                        if st.button("🔄 마지막 생각으로 AI 질문 다시 생성", key="retry_ai_chat_btn", type="primary", use_container_width=True):
+                            system_prompt = get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick)
+                            gemini_contents = build_gemini_contents(st.session_state.chat_history)
+                            with st.spinner("다시 생각의 경로를 분석 중입니다..."):
+                                try:
+                                    response = call_gemini_safe(
+                                        client,
+                                        contents=gemini_contents,
+                                        config=types.GenerateContentConfig(
+                                            system_instruction=system_prompt,
+                                            temperature=0.3
+                                        )
+                                    )
+                                    st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+                                    st.session_state["last_chat_error"] = None
+                                    st.rerun()
+                                except Exception as e:
+                                    st.session_state["last_chat_error"] = str(e)
+                                    st.rerun()
+                with col_close:
+                    if st.button("✖️ 오류 메시지 닫기", key="close_chat_err_btn", use_container_width=True):
+                        st.session_state["last_chat_error"] = None
+                        st.rerun()
+
+            # 학생 입력창
             if user_input := st.chat_input("당시 들었던 생각, 헷갈렸던 문장이나 단어를 솔직히 적어주세요..."):
+                st.session_state["last_chat_error"] = None
                 st.session_state.chat_history.append({"role": "user", "content": user_input})
                 with st.chat_message("user"):
                     st.write(user_input)
 
-                # 문제 텍스트 보강
-                q_context = ""
-                if q_num in SAMPLE_QUESTIONS_TEXT:
-                    item = SAMPLE_QUESTIONS_TEXT[q_num]
-                    q_context = f"\n[문항 세부 정보]\n- 지문: {item['passage']}\n- 발문: {item['question']}\n- 학생 선택 선지: {my_pick}번 ({item['options'].get(my_pick, '')})\n- 실제 정답 선지: {item['correct']}번 ({item['options'].get(item['correct'], '')})"
-
-                # 과거 누적 취약점 프로필 연동
-                past_profile = get_student_vulnerability_profile(student["student_id"])
-                past_context = ""
-                if past_profile.get("has_history") and past_profile.get("top_vulnerabilities"):
-                    top_str = ", ".join([f"'{t[0]}'({t[1]}회)" for t in past_profile["top_vulnerabilities"]])
-                    rules_sample = "; ".join([f"[{r['exam_title']} {r['q_num']}번: {r['action_rule']}]" for r in past_profile["action_rules"][-3:]]) if past_profile.get("action_rules") else "없음"
-                    past_context = f"""
-                [학생의 과거 누적 사고 오류 및 행동 원칙 기록]
-                - 이 학생({student['name']})은 이전 시험들에서 다음과 같은 사고 오류에 자주 빠진 이력이 있습니다: {top_str}
-                - 과거에 본인이 직접 수립했던 행동 원칙: {rules_sample}
-                - 지도 지침: 이번 문항에서도 학생이 과거의 고질적 취약 패턴({top_str})을 무의식적으로 되풀이했는지 관찰하고, 이전의 나쁜 독해 습관이나 미준수된 행동 원칙을 학생 스스로 깨닫도록 돕는 소크라테스식 질문을 던지십시오.
-                """
-
-                system_prompt = f"""
-                당신은 수능 국어 '사고 복원 전문 인터뷰어'입니다. 학생이 시험장에서 범한 인지 오류와 독해 습관을 스스로 깨닫도록 돕습니다.
-                
-                [현재 분석 문항]
-                - 시험: {exam_info['title']}
-                - 문항 번호: {q_num}번
-                - 학생 풀이 상태: {status_label}
-                - 학생이 고른 선지: {my_pick}번
-                {q_context}
-                {past_context}
-                [인터뷰어 핵심 행동 지침]
-                1. 절대 선지의 옳고 그름(정오)을 먼저 알려주거나 직접 해설 강의를 하지 마십시오.
-                2. 학생이 답변한 내용을 바탕으로, '지문의 어떤 문장을 어떻게 오독했는지', '선지의 특정 어휘를 임의로 왜곡했는지', '기억이 안 나서 지레짐작했는지'를 날카롭게 파고드는 질문을 '딱 1개'만 던지십시오.
-                3. 학생의 과거 취약점 이력이 존재한다면, 그 습관이 이번에도 재현되었는지 성찰을 유도하십시오.
-                4. 친절하지만 수능적 엄밀함을 유지하는 어조를 사용하십시오.
-                """
-
+                system_prompt = get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick)
                 gemini_contents = build_gemini_contents(st.session_state.chat_history)
 
                 with st.spinner("생각의 경로를 분석 중입니다..."):
@@ -602,9 +650,12 @@ def render_interview_stage(client):
                             )
                         )
                         st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+                        st.session_state["last_chat_error"] = None
+                        st.rerun()  # ✅ 성공했을 때만 즉각 새로고침!
                     except Exception as e:
+                        # ❌ 실패 시 st.rerun()을 실행하지 않고 에러를 세션에 영구 보존!
+                        st.session_state["last_chat_error"] = str(e)
                         st.error(f"응답 생성 오류: {e}")
-                st.rerun()
 
             if len(st.session_state.chat_history) >= 3:
                 st.divider()
@@ -612,7 +663,10 @@ def render_interview_stage(client):
                     with st.spinner("당시 사고 경로를 1인칭으로 요약 중입니다..."):
                         summary_prompt = "지금까지의 대화 전문을 바탕으로, 학생이 시험장에서 해당 선지를 고르게 된 '인지 왜곡 및 사고 경로'를 1~2문장으로 요약해 주십시오. 1인칭('나는 ~라고 생각하여 ~했다') 시점으로 작성하세요."
                         contents_for_summary = build_gemini_contents(st.session_state.chat_history)
-                        contents_for_summary.append({"role": "user", "parts": [{"text": summary_prompt}]})
+                        contents_for_summary.append(types.Content(
+                            role="user",
+                            parts=[types.Part.from_text(text=summary_prompt)]
+                        ))
                         try:
                             summary_res = call_gemini_safe(
                                 client,
@@ -620,13 +674,25 @@ def render_interview_stage(client):
                             )
                             st.session_state.draft_summary = summary_res.text
                             st.session_state.interview_step = "REVIEW"
+                            st.session_state["last_chat_error"] = None
+                            st.rerun()  # ✅ 성공 시에만 리런
                         except Exception as e:
+                            st.session_state["last_chat_error"] = f"사고 요약 작성 실패: {e}"
                             st.error(f"요약 중 오류: {e}")
-                    st.rerun()
 
         elif st.session_state.interview_step == "REVIEW":
             st.subheader("🔍 사고 복원 내용 확인 및 수정")
             st.info("💡 AI가 대화를 바탕으로 복원한 사고 과정입니다. 실제 내 생각과 다른 부분이 있다면 직접 수정해 주세요.")
+            
+            # 🚨 확정 단계 에러 발생 시 고정 표시
+            if st.session_state.get("last_review_error"):
+                st.error("⚠️ **정밀 분석 생성 중 오류가 발생했습니다.**")
+                with st.expander("🔍 오류 상세 내역 확인하기 (클릭)", expanded=True):
+                    st.code(st.session_state["last_review_error"], language="text")
+                if st.button("✖️ 오류 메시지 닫기", key="close_review_err_btn"):
+                    st.session_state["last_review_error"] = None
+                    st.rerun()
+
             edited_thought = st.text_area("시험 당시 나의 사고 흐름 (수정 가능)", value=st.session_state.draft_summary, height=130)
 
             if st.button("✅ 내 사고로 확정하고 정밀 분석 완료하기", type="primary", use_container_width=True):
@@ -661,9 +727,11 @@ def render_interview_stage(client):
                         st.session_state.current_analysis = analysis_data
                         st.session_state.diagnosed_items.append(analysis_data)
                         st.session_state.interview_step = "ITEM_COMPLETED"
+                        st.session_state["last_review_error"] = None
+                        st.rerun()  # ✅ 성공 시에만 리런
                     except Exception as e:
+                        st.session_state["last_review_error"] = str(e)
                         st.error(f"분석 중 오류: {e}")
-                st.rerun()
 
         elif st.session_state.interview_step == "ITEM_COMPLETED":
             res = st.session_state.current_analysis
@@ -832,9 +900,14 @@ def render_report_stage(client):
                             try:
                                 fb = evaluate_student_defense(client, prob, defense_input)
                                 st.session_state.training_feedback = fb
+                                st.session_state["training_feedback_error"] = None
+                                st.rerun()  # ✅ 성공 시에만 리런
                             except Exception as e:
+                                st.session_state["training_feedback_error"] = str(e)
                                 st.error(f"피드백 생성 오류: {e}")
-                        st.rerun()
+
+                if st.session_state.get("training_feedback_error"):
+                    st.error(f"⚠️ **방어 코칭 피드백 생성 실패:**\n\n{st.session_state['training_feedback_error']}")
 
                 if st.session_state.training_feedback:
                     st.divider()
