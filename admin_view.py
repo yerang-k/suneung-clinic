@@ -4,6 +4,7 @@ from data_manager import (
     get_students, add_student, delete_student, save_students,
     get_admin_config, save_admin_config,
     get_exams, save_exam, get_exam_pdf_base64,
+    attach_pdf_to_exam, get_exam_pdf_source, delete_exam,
     get_submissions
 )
 from pdf_viewer import render_pdf_viewer
@@ -85,63 +86,116 @@ def render_admin_dashboard():
     # ---------------- 탭 2: 시험지 및 PDF 업로드 ----------------
     with tab2:
         st.subheader("📄 시험지 등록 및 원문 PDF 업로드")
-        st.caption("업로드된 시험지 PDF는 학생들이 오답 복원 인터뷰를 진행할 때 좌측에 실물 시험지 뷰어로 실시간 제공됩니다.")
+        st.caption("학생들이 오답 복원 인터뷰나 실전 방어 훈련을 진행할 때 좌측에 실물 시험지 뷰어로 실시간 제공됩니다.")
 
-        with st.form("exam_upload_form"):
-            col_e1, col_e2, col_e3 = st.columns([1.5, 2, 1])
-            with col_e1:
-                exam_id_input = st.text_input("시험 고유 코드", placeholder="예: 2026_09_mock")
-            with col_e2:
-                exam_title_input = st.text_input("시험 명칭", placeholder="예: 2026학년도 9월 모의평가 국어영역")
-            with col_e3:
-                exam_total_q = st.number_input("총 문항 수", min_value=5, max_value=60, value=45)
-            
-            uploaded_pdf = st.file_uploader("시험지 원문 PDF 파일 선택 (최대 50MB)", type=["pdf"])
-            submit_exam = st.form_submit_button("시험지 등록 및 PDF 저장", type="primary", use_container_width=True)
+        exams = get_exams()
 
-            if submit_exam:
-                if not exam_id_input.strip() or not exam_title_input.strip():
-                    st.error("시험 코드와 시험 명칭을 모두 입력해 주세요.")
-                else:
-                    pdf_bytes = uploaded_pdf.read() if uploaded_pdf is not None else None
-                    fname = uploaded_pdf.name if uploaded_pdf is not None else None
-                    ok, msg = save_exam(
-                        exam_id=exam_id_input.strip(),
-                        title=exam_title_input.strip(),
-                        total_questions=exam_total_q,
-                        pdf_bytes=pdf_bytes,
-                        filename=fname
+        # 섹션 1: 기존 시험지에 PDF 첨부 (가장 쉽고 빠른 방식)
+        with st.container(border=True):
+            st.markdown("##### 📌 1단계: 기존 등록된 시험지에 PDF 연결하기")
+            st.caption("시험지를 선택하고, 내 컴퓨터의 PDF 파일 또는 구글 드라이브 파일 링크를 연결하세요.")
+
+            if exams:
+                target_exam_id = st.selectbox(
+                    "PDF를 연결할 시험지 선택",
+                    options=list(exams.keys()),
+                    format_func=lambda x: f"{exams[x]['title']} ({exams[x]['total_questions']}문항) - {'✅ PDF 연결됨' if exams[x].get('pdf_filename') or exams[x].get('pdf_url') else '❌ PDF 없음'}"
+                )
+
+                col_u1, col_u2 = st.columns(2)
+                with col_u1:
+                    st.markdown("**방법 A: 내 컴퓨터에서 PDF 파일 업로드**")
+                    pdf_file = st.file_uploader(f"'{exams[target_exam_id]['title']}' PDF 파일", type=["pdf"], key=f"uploader_{target_exam_id}")
+                with col_u2:
+                    st.markdown("**방법 B: 구글 드라이브 PDF 공유 링크 (강력 추천)**")
+                    st.caption("💡 구글 드라이브 공유 링크를 넣으시면 웹 배포가 재시작되어도 파일이 절대 날아가지 않습니다.")
+                    drive_pdf_link = st.text_input(
+                        "구글 드라이브 PDF 링크",
+                        value=exams[target_exam_id].get("pdf_url", ""),
+                        placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
                     )
+
+                if st.button("📥 선택한 시험지에 PDF 저장 및 연결", type="primary", use_container_width=True):
+                    pdf_bytes = pdf_file.read() if pdf_file is not None else None
+                    fname = pdf_file.name if pdf_file is not None else None
+                    
+                    if not pdf_bytes and not drive_pdf_link.strip():
+                        st.warning("PDF 파일을 선택하거나 구글 드라이브 링크를 입력해 주세요.")
+                    else:
+                        ok, msg = attach_pdf_to_exam(
+                            exam_id=target_exam_id,
+                            pdf_bytes=pdf_bytes,
+                            filename=fname,
+                            pdf_url=drive_pdf_link.strip()
+                        )
+                        st.success(msg)
+                        st.rerun()
+
+        # 섹션 2: 새 시험지 등록 (expander)
+        with st.expander("➕ 새로운 시험지 추가 등록하기"):
+            with st.form("new_exam_form"):
+                col_e1, col_e2, col_e3 = st.columns([1.5, 2, 1])
+                with col_e1:
+                    new_eid = st.text_input("새 시험 고유 코드", placeholder="예: 2026_11_suneung")
+                with col_e2:
+                    new_etitle = st.text_input("새 시험 명칭", placeholder="예: 2026학년도 대학수학능력시험 국어영역")
+                with col_e3:
+                    new_eq = st.number_input("총 문항 수", min_value=5, max_value=60, value=45)
+
+                col_nf1, col_nf2 = st.columns(2)
+                with col_nf1:
+                    new_pdf_file = st.file_uploader("시험지 PDF 파일", type=["pdf"], key="new_exam_pdf")
+                with col_nf2:
+                    new_pdf_url = st.text_input("구글 드라이브 PDF 링크 (선택)", placeholder="https://drive.google.com/file/d/...")
+
+                if st.form_submit_button("새 시험지 생성 및 저장", type="primary", use_container_width=True):
+                    if not new_eid.strip() or not new_etitle.strip():
+                        st.error("시험 코드와 시험 명칭을 모두 입력해 주세요.")
+                    else:
+                        pdf_bytes = new_pdf_file.read() if new_pdf_file is not None else None
+                        fname = new_pdf_file.name if new_pdf_file is not None else None
+                        ok, msg = save_exam(
+                            exam_id=new_eid.strip(),
+                            title=new_etitle.strip(),
+                            total_questions=new_eq,
+                            pdf_bytes=pdf_bytes,
+                            filename=fname,
+                            pdf_url=new_pdf_url.strip()
+                        )
+                        st.success(msg)
+                        st.rerun()
+
+        # 섹션 3: 현재 시험지 목록 및 PDF 미리보기
+        st.divider()
+        st.markdown("##### 📚 등록된 시험지 목록 및 PDF 미리보기")
+        if exams:
+            preview_eid = st.selectbox(
+                "미리보기할 시험지 선택",
+                options=list(exams.keys()),
+                format_func=lambda x: f"{exams[x]['title']} ({exams[x]['total_questions']}문항)",
+                key="preview_exam_select"
+            )
+            ex_info = exams[preview_eid]
+            b64, url = get_exam_pdf_source(preview_eid)
+
+            col_pi1, col_pi2, col_pi3 = st.columns([2, 2, 1])
+            with col_pi1:
+                st.write(f"**시험 코드:** `{ex_info['exam_id']}` | **총 문항 수:** {ex_info['total_questions']}문항")
+            with col_pi2:
+                has_pdf = bool(b64 or url)
+                status_txt = "✅ PDF 연결됨" if has_pdf else "❌ PDF 없음 (텍스트 모드로 동작)"
+                st.write(f"**PDF 상태:** {status_txt}")
+            with col_pi3:
+                if st.button("🗑️ 시험지 삭제", key=f"del_exam_{preview_eid}", use_container_width=True):
+                    ok, msg = delete_exam(preview_eid)
                     st.success(msg)
                     st.rerun()
 
-        st.divider()
-        st.markdown("##### 📚 등록된 시험지 목록 및 PDF 미리보기")
-        exams = get_exams()
-        selected_exam_id = st.selectbox(
-            "확인할 시험지 선택",
-            options=list(exams.keys()),
-            format_func=lambda x: f"{exams[x]['title']} ({exams[x]['total_questions']}문항)"
-        )
-
-        if selected_exam_id:
-            exam_info = exams[selected_exam_id]
-            col_info1, col_info2 = st.columns(2)
-            with col_info1:
-                st.write(f"**시험 코드:** `{exam_info['exam_id']}`")
-                st.write(f"**총 문항 수:** {exam_info['total_questions']}문항")
-            with col_info2:
-                pdf_status = "✅ PDF 탑재됨" if exam_info.get("pdf_filename") else "❌ PDF 없음 (텍스트 모드로 동작)"
-                st.write(f"**PDF 등록 상태:** {pdf_status}")
-                st.write(f"**등록일:** {exam_info.get('created_at', '-')}")
-
-            # PDF 미리보기
-            pdf_b64 = get_exam_pdf_base64(selected_exam_id)
-            if pdf_b64:
+            if b64 or url:
                 st.markdown("###### [원문 PDF 뷰어 미리보기]")
-                render_pdf_viewer(pdf_b64, initial_page=1, height=600)
+                render_pdf_viewer(base64_pdf=b64, pdf_url=url, initial_page=1, height=600)
             else:
-                st.warning("이 시험지에는 아직 원문 PDF 파일이 등록되지 않았습니다. 상단에서 PDF 파일을 업로드해 주세요.")
+                st.warning(f"'{ex_info['title']}'에는 아직 원문 PDF 파일이 등록되지 않았습니다. 상단 '1단계'에서 PDF 파일 또는 구글 드라이브 링크를 연결해 주세요.")
 
     # ---------------- 탭 3: 마스터 연동 및 시스템 설정 ----------------
     with tab3:

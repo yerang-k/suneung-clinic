@@ -222,7 +222,7 @@ def get_exams():
     except Exception:
         return DEFAULT_EXAMS
 
-def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes = None, filename: str = None):
+def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes = None, filename: str = None, pdf_url: str = ""):
     init_data_dirs()
     exams = get_exams()
     pdf_save_name = ""
@@ -236,16 +236,53 @@ def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes =
     elif exam_id in exams and exams[exam_id].get("pdf_filename"):
         pdf_save_name = exams[exam_id]["pdf_filename"]
 
+    existing_url = exams[exam_id].get("pdf_url", "") if exam_id in exams else ""
+    final_url = pdf_url.strip() if pdf_url else existing_url
+
     exams[exam_id] = {
         "exam_id": exam_id,
         "title": title,
         "total_questions": int(total_questions),
         "pdf_filename": pdf_save_name,
+        "pdf_url": final_url,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
     }
     with open(EXAMS_META_FILE, "w", encoding="utf-8") as f:
         json.dump(exams, f, ensure_ascii=False, indent=2)
-    return True, "시험지가 성공적으로 등록되었습니다."
+    return True, f"'{title}' 시험지가 성공적으로 등록/저장되었습니다."
+
+def attach_pdf_to_exam(exam_id: str, pdf_bytes: bytes = None, filename: str = None, pdf_url: str = ""):
+    """기존에 등록된 시험지에 PDF 파일 또는 구글 드라이브 URL을 첨부합니다."""
+    init_data_dirs()
+    exams = get_exams()
+    if exam_id not in exams:
+        return False, "해당 시험지를 찾을 수 없습니다."
+
+    ex = exams[exam_id]
+    if pdf_bytes and filename:
+        safe_filename = f"{exam_id}_{filename}"
+        pdf_path = os.path.join(EXAMS_DIR, safe_filename)
+        with open(pdf_path, "wb") as f:
+            f.write(pdf_bytes)
+        ex["pdf_filename"] = safe_filename
+    
+    if pdf_url:
+        ex["pdf_url"] = pdf_url.strip()
+
+    exams[exam_id] = ex
+    with open(EXAMS_META_FILE, "w", encoding="utf-8") as f:
+        json.dump(exams, f, ensure_ascii=False, indent=2)
+    return True, f"'{ex['title']}'에 PDF가 성공적으로 연결되었습니다!"
+
+def delete_exam(exam_id: str):
+    init_data_dirs()
+    exams = get_exams()
+    if exam_id in exams:
+        del exams[exam_id]
+        with open(EXAMS_META_FILE, "w", encoding="utf-8") as f:
+            json.dump(exams, f, ensure_ascii=False, indent=2)
+        return True, "시험지가 삭제되었습니다."
+    return False, "해당 시험지를 찾을 수 없습니다."
 
 def get_exam_pdf_path(exam_id: str):
     exams = get_exams()
@@ -266,6 +303,16 @@ def get_exam_pdf_base64(exam_id: str):
         except Exception:
             return None
     return None
+
+def get_exam_pdf_source(exam_id: str):
+    """시험지의 PDF 데이터 소스 (Base64 데이터, 웹/구글드라이브 URL)를 반환"""
+    exams = get_exams()
+    if exam_id in exams:
+        ex = exams[exam_id]
+        url = ex.get("pdf_url", "")
+        b64 = get_exam_pdf_base64(exam_id)
+        return b64, url
+    return None, None
 
 # --- 진단 제출 로그 (Submissions) ---
 def save_submission(sub_data: dict):

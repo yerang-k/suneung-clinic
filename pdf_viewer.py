@@ -1,26 +1,66 @@
+import re
 import streamlit as st
 
-def render_pdf_viewer(base64_pdf: str, initial_page: int = 1, height: int = 750):
+def format_drive_preview_url(url: str) -> str:
+    """구글 드라이브 공유 링크를 임베드 가능한 /preview 링크로 변환"""
+    if not url:
+        return ""
+    # /file/d/FILE_ID/ 형식 매칭
+    match = re.search(r"drive\.google\.com/file/d/([a-zA-Z0-9_-]+)", url)
+    if match:
+        file_id = match.group(1)
+        return f"https://drive.google.com/file/d/{file_id}/preview"
+    # id=FILE_ID 형식 매칭
+    match = re.search(r"id=([a-zA-Z0-9_-]+)", url)
+    if match:
+        file_id = match.group(1)
+        return f"https://drive.google.com/file/d/{file_id}/preview"
+    return url
+
+def render_pdf_viewer(base64_pdf: str = None, pdf_url: str = None, initial_page: int = 1, height: int = 720):
     """
-    시험지 원문 PDF를 실물 느낌으로 렌더링하는 Base64 iFrame 뷰어
-    브라우저 기본 PDF 툴바(확대, 축소, 회전, 페이지 넘김, 인쇄) 지원
+    시험지 원문 PDF 뷰어
+    - 구글 드라이브 또는 웹 URL이 있는 경우 안정적인 공식 임베드 뷰어로 출력
+    - 로컬 Base64 PDF 파일이 있는 경우 Base64 데이터 스트림으로 출력
     """
-    if not base64_pdf:
-        st.warning("📄 등록된 시험지 PDF 파일이 없습니다. [교사용 관리자 모드]에서 시험지 PDF를 업로드해 주세요.")
+    if pdf_url and pdf_url.startswith("http"):
+        preview_url = format_drive_preview_url(pdf_url)
+        st.markdown(f"""
+        <div style="margin-bottom: 8px; display: flex; justify-content: flex-end;">
+            <a href="{pdf_url}" target="_blank" style="text-decoration: none;">
+                <button style="background-color: #f1f5f9; border: 1px solid #cbd5e1; color: #1e293b; padding: 4px 10px; border-radius: 4px; font-size: 0.85rem; cursor: pointer;">
+                    ↗ 새 창에서 원문 열기
+                </button>
+            </a>
+        </div>
+        <div style="border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <iframe 
+                src="{preview_url}" 
+                width="100%" 
+                height="{height}px" 
+                style="border: none;"
+                allow="autoplay">
+            </iframe>
+        </div>
+        """, unsafe_allow_html=True)
         return
 
-    pdf_display = f"""
-    <div style="border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-        <iframe 
-            src="data:application/pdf;base64,{base64_pdf}#page={initial_page}&toolbar=1&navpanes=0&scrollbar=1" 
-            width="100%" 
-            height="{height}px" 
-            type="application/pdf"
-            style="border: none;">
-        </iframe>
-    </div>
-    """
-    st.markdown(pdf_display, unsafe_allow_html=True)
+    if base64_pdf:
+        pdf_display = f"""
+        <div style="border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <iframe 
+                src="data:application/pdf;base64,{base64_pdf}#page={initial_page}&toolbar=1&navpanes=0&scrollbar=1" 
+                width="100%" 
+                height="{height}px" 
+                type="application/pdf"
+                style="border: none;">
+            </iframe>
+        </div>
+        """
+        st.markdown(pdf_display, unsafe_allow_html=True)
+        return
+
+    st.warning("📄 등록된 시험지 PDF 파일이 없습니다. [교사용 관리자 모드]에서 시험지 PDF 또는 링크를 등록해 주세요.")
 
 def render_csat_text_view(question_item: dict, my_pick: int, status_tag: str):
     """
