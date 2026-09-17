@@ -1,6 +1,7 @@
 import base64
 import os
 import re
+import io
 import requests
 import streamlit as st
 import pypdfium2 as pdfium
@@ -17,88 +18,120 @@ def extract_drive_file_id(url: str) -> str:
         return m.group(1)
     return ""
 
-def load_pdf_doc(base64_pdf: str = None, pdf_path: str = None, pdf_url: str = None):
-    """PDF 소스로부터 pypdfium2.PdfDocument 객체를 안전하게 로드"""
+@st.cache_data(show_spinner=False, ttl=7200, max_entries=5)
+def get_pdf_bytes_cached(pdf_url: str = None, pdf_path: str = None, base64_pdf: str = None) -> bytes:
+    """
+    시험지 PDF 바이너리를 메모리에 캐시하여, 
+    채팅이나 페이지 넘김 시 반복적인 드라이브 다운로드를 0초로 만듭니다.
+    """
     if pdf_path and os.path.exists(pdf_path):
         try:
-            return pdfium.PdfDocument(pdf_path)
+            with open(pdf_path, "rb") as f:
+                return f.read()
         except Exception:
             pass
 
     if base64_pdf:
         try:
-            raw_bytes = base64.b64decode(base64_pdf)
-            return pdfium.PdfDocument(raw_bytes)
+            return base64.b64decode(base64_pdf)
         except Exception:
             pass
 
-    # 구글 드라이브 파일 직접 다운로드 시도
     if pdf_url and "drive.google.com" in pdf_url:
         file_id = extract_drive_file_id(pdf_url)
         if file_id:
             try:
                 dl_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-                resp = requests.get(dl_url, timeout=7)
+                resp = requests.get(dl_url, timeout=10)
                 if resp.status_code == 200 and len(resp.content) > 1000:
-                    return pdfium.PdfDocument(resp.content)
+                    return resp.content
             except Exception:
                 pass
 
     return None
 
+@st.cache_data(show_spinner=False, max_entries=10)
+def get_pdf_total_pages_cached(pdf_bytes: bytes) -> int:
+    """PDF 전체 페이지 수 조회 (캐시됨)"""
+    if not pdf_bytes:
+        return 0
+    try:
+        doc = pdfium.PdfDocument(pdf_bytes)
+        return len(doc)
+    except Exception:
+        return 0
+
+@st.cache_data(show_spinner=False, max_entries=80)
+def render_pdf_page_cached(pdf_bytes: bytes, page_index: int, scale: float = 2.0) -> bytes:
+    """
+    지정된 페이지를 고화질 JPEG 이미지 바이트로 렌더링하여 캐시합니다.
+    한 번 렌더링된 페이지는 0.01초 만에 즉각 화면에 표시됩니다.
+    """
+    if not pdf_bytes:
+        return None
+    try:
+        doc = pdfium.PdfDocument(pdf_bytes)
+        if 0 <= page_index < len(doc):
+            page = doc[page_index]
+            pil_img = page.render(scale=scale).to_pil()
+            buf = io.BytesIO()
+            pil_img.save(buf, format="JPEG", quality=85)
+            return buf.getvalue()
+    except Exception:
+        pass
+    return None
+
 def render_pdf_viewer(base64_pdf: str = None, pdf_url: str = None, pdf_path: str = None, initial_page: int = 1, height: int = 720):
     """
-    모든 브라우저(크롬, 엣지, 사파리, 모바일)에서 100% 동작하는 실물 시험지 뷰어
-    1. pypdfium2로 PDF 페이지를 네이티브 고화질 이미지로 변환하여 렌더링 (보안 차단 이슈 0%)
-    2. 이전/다음 페이지 넘김 및 특정 페이지(1~N) 자동 이동
-    3. 구글 드라이브 링크가 있는 경우 공식 preview 뷰어 및 새 창 열기 폴백 제공
+    초고속 캐싱이 적용된 실물 시험지 뷰어
+    - 구글 드라이브 다운로드 1회 캐시
+    - 페이지 이미지 렌더링 캐시 (0.01초 즉각 전환)
+    - 채팅 입력 시 화면 깜빡임 및 버벅임 완전 제거
     """
-    doc = load_pdf_doc(base64_pdf=base64_pdf, pdf_path=pdf_path, pdf_url=pdf_url)
+    pdf_bytes = get_pdf_bytes_cached(pdf_url=pdf_url, pdf_path=pdf_path, base64_pdf=base64_pdf)
 
-    if doc is not None:
-        total_pages = len(doc)
-        
-        # 페이지 상태 키 (문서 및 세션별 고유 키)
-        page_state_key = f"pdf_cur_page_{initial_page}_{total_pages}"
-        if page_state_key not in st.session_state:
-            st.session_state[page_state_key] = max(1, min(initial_page, total_pages))
+    if pdf_bytes:
+        total_pages = get_pdf_total_pages_cached(pdf_bytes)
+        if total_pages > 0:
+            page_state_key = f"pdf_cur_page_{initial_page}_{total_pages}"
+            if page_state_key not in st.session_state:
+                st.session_state[page_state_key] = max(1, min(initial_page, total_pages))
 
-        cur_page = st.session_state[page_state_key]
+            cur_page = st.session_state[page_state_key]
 
-        # 상단 네비게이션 바
-        col_n1, col_n2, col_n3, col_n4 = st.columns([1.2, 2, 1.2, 1.2])
-        with col_n1:
-            if st.button("◀ 이전 페이지", key=f"btn_prev_{page_state_key}", disabled=(cur_page <= 1), use_container_width=True):
-                st.session_state[page_state_key] = max(1, cur_page - 1)
-                st.rerun()
-        with col_n2:
-            sel_p = st.selectbox(
-                "페이지",
-                options=list(range(1, total_pages + 1)),
-                index=cur_page - 1,
-                format_func=lambda x: f"📄 {x} / {total_pages} 페이지",
-                label_visibility="collapsed",
-                key=f"sel_{page_state_key}"
-            )
-            if sel_p != cur_page:
-                st.session_state[page_state_key] = sel_p
-                st.rerun()
-        with col_n3:
-            if st.button("다음 페이지 ▶", key=f"btn_next_{page_state_key}", disabled=(cur_page >= total_pages), use_container_width=True):
-                st.session_state[page_state_key] = min(total_pages, cur_page + 1)
-                st.rerun()
-        with col_n4:
-            if pdf_url and pdf_url.startswith("http"):
-                st.link_button("↗ 원문 링크", pdf_url, use_container_width=True)
+            # 상단 네비게이션 바
+            col_n1, col_n2, col_n3, col_n4 = st.columns([1.2, 2, 1.2, 1.2])
+            with col_n1:
+                if st.button("◀ 이전 페이지", key=f"btn_prev_{page_state_key}", disabled=(cur_page <= 1), use_container_width=True):
+                    st.session_state[page_state_key] = max(1, cur_page - 1)
+                    st.rerun()
+            with col_n2:
+                sel_p = st.selectbox(
+                    "페이지",
+                    options=list(range(1, total_pages + 1)),
+                    index=cur_page - 1,
+                    format_func=lambda x: f"📄 {x} / {total_pages} 페이지",
+                    label_visibility="collapsed",
+                    key=f"sel_{page_state_key}"
+                )
+                if sel_p != cur_page:
+                    st.session_state[page_state_key] = sel_p
+                    st.rerun()
+            with col_n3:
+                if st.button("다음 페이지 ▶", key=f"btn_next_{page_state_key}", disabled=(cur_page >= total_pages), use_container_width=True):
+                    st.session_state[page_state_key] = min(total_pages, cur_page + 1)
+                    st.rerun()
+            with col_n4:
+                if pdf_url and pdf_url.startswith("http"):
+                    st.link_button("↗ 원문 링크", pdf_url, use_container_width=True)
 
-        # 페이지 초고화질 렌더링 (scale=2.2로 실제 인쇄 품질의 선명도 제공)
-        try:
-            page_obj = doc[cur_page - 1]
-            img = page_obj.render(scale=2.2).to_pil()
-            st.image(img, use_container_width=True, caption=f"시험지 {cur_page} / {total_pages} 페이지")
-        except Exception as e:
-            st.error(f"페이지 렌더링 중 오류: {e}")
-        return
+            # 캐시된 초고속 페이지 이미지 출력
+            img_bytes = render_pdf_page_cached(pdf_bytes, cur_page - 1, scale=2.0)
+            if img_bytes:
+                st.image(img_bytes, use_container_width=True, caption=f"시험지 {cur_page} / {total_pages} 페이지")
+            else:
+                st.error("페이지 렌더링 실패")
+            return
 
     # 구글 드라이브 링크가 있는데 직접 다운로드가 안 된 경우: 구글 공식 preview iframe으로 폴백
     if pdf_url and pdf_url.startswith("http"):

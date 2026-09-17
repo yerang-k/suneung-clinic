@@ -587,9 +587,15 @@ def get_student_vulnerability_profile(student_id: str) -> dict:
 def call_gemini_safe(client, contents, config=None):
     """
     Gemini 모델 호출 시 404 NOT_FOUND를 방지하기 위해
-    안정적인 정식 모델(gemini-2.0-flash -> gemini-1.5-flash)로 순차 자동 폴백합니다.
+    Google 정식 주력 모델들을 순차적으로 자동 시도합니다.
     """
-    candidate_models = ["gemini-2.0-flash", "gemini-1.5-flash"]
+    candidate_models = [
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+        "models/gemini-2.0-flash",
+        "models/gemini-1.5-flash"
+    ]
     last_err = None
     for m in candidate_models:
         try:
