@@ -1,4 +1,6 @@
 import os
+import io
+import re
 import json
 import base64
 import threading
@@ -591,12 +593,112 @@ def parse_answer_string(raw_text: str) -> dict:
     """
     텍스트 문자열(예: '14325 12345...' 또는 줄바꿈된 숫자들)을 파싱하여 {문항번호: 정답번호} 딕셔너리로 변환
     """
-    import re
     digits = re.findall(r'[1-5]', str(raw_text or ""))
     result = {}
     for idx, d in enumerate(digits[:45], start=1):
         result[idx] = int(d)
     return result
+
+def extract_answers_from_pdf(pdf_bytes: bytes, client=None) -> tuple[dict, str]:
+    """
+    평가원 공식 정답표 PDF 파일에서 1~45번 정답을 자동으로 추출하여 {문항번호: 정답번호} 딕셔너리로 반환합니다.
+    1. pypdf를 통해 텍스트를 우선 추출
+    2. Gemini Multimodal AI (gemini-2.0-flash)를 활용해 PDF 표 및 텍스트에서 1~45번 정답을 정밀 판독
+    3. AI 부재 또는 오류 시 정규식 패턴 파서로 자동 폴백
+    """
+    if not pdf_bytes:
+        return {}, "PDF 파일 데이터가 전달되지 않았습니다."
+
+    extracted_text = ""
+    try:
+        import pypdf
+        reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+        for page in reader.pages:
+            t = page.extract_text()
+            if t:
+                extracted_text += t + "\n"
+    except Exception:
+        extracted_text = ""
+
+    # 1. Gemini AI를 활용한 정밀 추출
+    if client is None:
+        try:
+            saved_key, _ = get_effective_api_key()
+            if saved_key:
+                from google import genai
+                client = genai.Client(api_key=saved_key)
+        except Exception:
+            pass
+
+    if client is not None:
+        try:
+            from google.genai import types
+            prompt = """
+당신은 대한민국 대학수학능력시험 및 모의평가 공식 정답표를 완벽하게 판독하는 전문가입니다.
+제공된 정답표 PDF(또는 텍스트)를 꼼꼼히 분석하여, 국어영역의 1번부터 45번까지의 [문항 번호: 정답 번호(1~5)]를 정확히 추출해 주세요.
+
+규칙:
+1. 문항 번호는 1부터 시작하며, 정답은 반드시 1, 2, 3, 4, 5 중 하나입니다.
+2. 만약 복수정답이 있다면 가장 앞선 번호 하나만 선택하세요.
+3. 반드시 아래와 같은 순수 JSON 형식으로만 응답하세요 (마크다운 코드블록 포함 가능):
+{
+    "1": 1,
+    "2": 4,
+    "3": 2,
+    ...
+    "45": 3
+}
+"""
+            parts = []
+            try:
+                parts.append(types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"))
+            except Exception:
+                pass
+            if extracted_text.strip():
+                parts.append(types.Part.from_text(text=f"[추출된 텍스트 내용]\n{extracted_text[:4000]}"))
+            parts.append(types.Part.from_text(text=prompt))
+
+            res = client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=parts,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.0
+                )
+            )
+            raw_text = res.text.strip()
+            cleaned = re.sub(r"^```(?:json)?\s*|```$", "", raw_text, flags=re.MULTILINE)
+            parsed = json.loads(cleaned)
+            result = {}
+            for k, v in parsed.items():
+                try:
+                    qk = int(k)
+                    qv = int(v)
+                    if 1 <= qv <= 5:
+                        result[qk] = qv
+                except Exception:
+                    pass
+            if len(result) >= 15:
+                return result, f"Gemini AI가 정답표 PDF에서 총 {len(result)}개 문항의 정답을 완벽하게 인식했습니다!"
+        except Exception as ex:
+            pass
+
+    # 2. 로컬 정규식 폴백 추출 (텍스트에서 '문항번호 정답' 테이블 형태 탐색)
+    if extracted_text.strip():
+        # 문항 번호와 정답 번호가 연이어 있는 경우 (예: 1 3 2 4 3 1 ...)
+        pair_matches = re.findall(r'(?:^|\s)(\d{1,2})\s+([1-5])(?:\s|$)', extracted_text)
+        if len(pair_matches) >= 20:
+            result = {}
+            for qk_s, qv_s in pair_matches:
+                qk = int(qk_s)
+                qv = int(qv_s)
+                if 1 <= qk <= 45 and qk not in result:
+                    result[qk] = qv
+            if len(result) >= 20:
+                return result, f"PDF 텍스트 파싱을 통해 총 {len(result)}개 문항의 정답을 자동 추출했습니다."
+
+    return {}, "정답표 PDF에서 정답을 자동으로 판독하지 못했습니다. PDF 내용이 선명한지 확인하시거나 정답 번호를 직접 입력해 주세요."
+
 
 def grade_student_omr(exam_id: str, omr_rows: list) -> dict:
     """

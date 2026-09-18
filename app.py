@@ -462,7 +462,7 @@ if st.session_state.app_mode == "ADMIN":
                 st.session_state.app_mode = "STUDENT"
                 st.rerun()
     else:
-        render_admin_dashboard()
+        render_admin_dashboard(client)
 
 else:
     # 🎓 학생 모드

@@ -5,13 +5,13 @@ from data_manager import (
     get_admin_config, save_admin_config,
     get_exams, save_exam, get_exam_pdf_base64,
     attach_pdf_to_exam, get_exam_pdf_source, delete_exam,
-    get_exam_answer_key, save_exam_answer_key, parse_answer_string,
+    get_exam_answer_key, save_exam_answer_key, parse_answer_string, extract_answers_from_pdf,
     get_submissions, get_student_vulnerability_profile, get_student_submissions,
     sync_from_google_sheets, push_all_to_google_sheets, get_last_sync_time, get_gas_api_url
 )
 from pdf_viewer import render_pdf_viewer
 
-def render_admin_dashboard():
+def render_admin_dashboard(client=None):
     col_t1, col_t2 = st.columns([3, 1.2])
     with col_t1:
         st.title("🔒 교사용 관리자 모드")
@@ -110,7 +110,9 @@ def render_admin_dashboard():
 
         exams = get_exams()
         NEW_EXAM_OPT = "➕ [새로운 시험지 추가 등록하기]"
-        exam_options = list(exams.keys()) + [NEW_EXAM_OPT]
+        # ⭐️ 시험지 목록을 이름(제목) 순으로 깔끔하게 정렬
+        sorted_exam_keys = sorted(list(exams.keys()), key=lambda x: str(exams[x].get("title", "")))
+        exam_options = sorted_exam_keys + [NEW_EXAM_OPT]
 
         if not exams:
             # 등록된 시험지가 하나도 없을 때
@@ -152,9 +154,42 @@ def render_admin_dashboard():
                     new_pdf_url = st.text_input("구글 드라이브 PDF 공유 링크", placeholder="https://drive.google.com/file/d/.../view?usp=sharing", key="new_pdf_url_input")
 
                 st.markdown("##### 🎯 공식 정답표 (선택 사항)")
-                st.caption("평가원 정답표의 숫자들을 그대로 복사해 붙여넣으면 1~45번 정답표가 자동 등록됩니다.")
+                st.caption("평가원 정답표 PDF를 업로드하면 AI가 1~45번 정답을 자동으로 판독해 채워줍니다.")
+
+                # 새 시험지 정답표 PDF 업로드 컨테이너
+                with st.container(border=True):
+                    st.markdown("###### 📄 평가원 공식 정답표 PDF로 자동 채우기")
+                    col_nap1, col_nap2 = st.columns([2.5, 1])
+                    with col_nap1:
+                        new_ans_pdf_file = st.file_uploader("정답표 PDF 파일 선택", type=["pdf"], key="new_exam_ans_pdf_uploader")
+                    with col_nap2:
+                        st.write("")
+                        st.write("")
+                        if st.button("⚡ 정답 자동 추출", type="secondary", use_container_width=True, key="btn_extract_new_ans"):
+                            if not new_ans_pdf_file:
+                                st.warning("정답표 PDF 파일을 먼저 선택해 주세요.")
+                            else:
+                                with st.spinner("AI가 정답표 PDF를 분석 중입니다..."):
+                                    pdf_bytes = new_ans_pdf_file.read()
+                                    extracted_dict, msg = extract_answers_from_pdf(pdf_bytes, client=client)
+                                    if extracted_dict:
+                                        st.session_state["new_extracted_ans"] = extracted_dict
+                                        st.toast(msg, icon="✅")
+                                        st.rerun()
+                                    else:
+                                        st.error(msg)
+
+                new_extracted = st.session_state.get("new_extracted_ans", {})
+                if new_extracted:
+                    st.info(f"💡 정답표 PDF에서 **총 {len(new_extracted)}개 문항 정답**이 추출되었습니다!")
+                    new_str_parts = [str(new_extracted.get(i, "")) for i in range(1, new_total_q + 1)]
+                    new_preview_str = " ".join(["".join(new_str_parts[j:j+5]) for j in range(0, new_total_q, 5)]).strip()
+                else:
+                    new_preview_str = ""
+
                 new_ans_str = st.text_area(
                     "1번~45번 정답 빠른 붙여넣기 (1부터 5까지 숫자)",
+                    value=new_preview_str,
                     placeholder="예: 11423 53423 25415 35413 24153 24253 41523 41523 41523",
                     key="new_ans_str_input"
                 )
@@ -168,7 +203,7 @@ def render_admin_dashboard():
                     else:
                         pdf_bytes = new_pdf_file.read() if new_pdf_file is not None else None
                         fname = new_pdf_file.name if new_pdf_file is not None else None
-                        parsed_ans = parse_answer_string(new_ans_str) if new_ans_str.strip() else {}
+                        parsed_ans = parse_answer_string(new_ans_str) if new_ans_str.strip() else new_extracted
 
                         ok, msg = save_exam(
                             exam_id=eid_c,
@@ -179,6 +214,7 @@ def render_admin_dashboard():
                             pdf_url=new_pdf_url.strip(),
                             answer_key=parsed_ans
                         )
+                        st.session_state.pop("new_extracted_ans", None)
                         st.success(f"✅ '{title_c}' 시험지가 성공적으로 등록되었습니다!")
                         st.rerun()
 
@@ -240,9 +276,45 @@ def render_admin_dashboard():
                 st.markdown("##### 3️⃣ 공식 정답표 (Answer Key)")
                 st.caption("공식 정답표를 넣어두면 학생의 OMR 채점 및 메타인지 4대 매트릭스(확신정답, 불안정답, 오답, 찍음)가 자동 판정됩니다.")
 
+                # ⭐️ 정답표 PDF 파일 업로드로 자동 채우기
+                with st.container(border=True):
+                    st.markdown("###### 📄 평가원 공식 정답표 PDF로 자동 채우기")
+                    st.caption("평가원 정답표 PDF 파일을 올리고 [⚡ 정답 자동 추출] 버튼을 누르면 AI가 1~45번 정답 번호를 자동으로 판독해 채워줍니다.")
+                    col_ap1, col_ap2 = st.columns([2.5, 1])
+                    with col_ap1:
+                        ans_pdf_file = st.file_uploader(
+                            "공식 정답표 PDF 파일 선택",
+                            type=["pdf"],
+                            key=f"ans_pdf_upload_{selected_eid}"
+                        )
+                    with col_ap2:
+                        st.write("")
+                        st.write("")
+                        if st.button("⚡ 정답 자동 추출", type="secondary", use_container_width=True, key=f"btn_extract_ans_{selected_eid}"):
+                            if not ans_pdf_file:
+                                st.warning("정답표 PDF 파일을 먼저 선택해 주세요.")
+                            else:
+                                with st.spinner("AI가 정답표 PDF를 분석하여 1~45번 정답을 판독 중입니다..."):
+                                    pdf_bytes = ans_pdf_file.read()
+                                    extracted_dict, msg = extract_answers_from_pdf(pdf_bytes, client=client)
+                                    if extracted_dict:
+                                        st.session_state[f"extracted_ans_{selected_eid}"] = extracted_dict
+                                        st.toast(msg, icon="✅")
+                                        st.rerun()
+                                    else:
+                                        st.error(msg)
+
+                # 세션에 방금 추출된 정답이 있다면 그것을 우선 사용
+                extracted_for_cur = st.session_state.get(f"extracted_ans_{selected_eid}")
+                if extracted_for_cur:
+                    cur_key_to_show = extracted_for_cur
+                    st.info(f"💡 정답표 PDF에서 **총 {len(extracted_for_cur)}개 문항의 정답이 자동 추출**되었습니다! 아래 텍스트와 상세 확인 표를 검토하신 후 맨 아래 **[💾 이 시험지 설정 저장하기]**를 눌러 저장해 주세요.")
+                else:
+                    cur_key_to_show = cur_key
+
                 cur_str_parts = []
                 for i in range(1, edit_total_q + 1):
-                    cur_str_parts.append(str(cur_key.get(i, "")))
+                    cur_str_parts.append(str(cur_key_to_show.get(i, "")))
                 preview_raw_str = " ".join([
                     "".join(cur_str_parts[j:j+5]) for j in range(0, edit_total_q, 5)
                 ]).strip()
@@ -255,8 +327,8 @@ def render_admin_dashboard():
                     help="평가원 정답표의 숫자들을 복사해 넣으면 공백이나 엔터를 자동 제거하고 1~45번 정답으로 저장합니다."
                 )
 
-                if cur_key:
-                    with st.expander(f"👀 현재 등록된 1~{edit_total_q}번 정답표 상세 확인 ({len(cur_key)}문항 등록됨)"):
+                if cur_key_to_show:
+                    with st.expander(f"👀 현재 등록(추출)된 1~{edit_total_q}번 정답표 상세 확인 ({len(cur_key_to_show)}문항 등록됨)"):
                         cols_grid = st.columns(5)
                         for col_idx in range(5):
                             with cols_grid[col_idx]:
@@ -264,7 +336,7 @@ def render_admin_dashboard():
                                 end_q = min(start_q + 9, edit_total_q + 1)
                                 grid_lines = []
                                 for qn in range(start_q, end_q):
-                                    ans_val = cur_key.get(qn, "-")
+                                    ans_val = cur_key_to_show.get(qn, "-")
                                     grid_lines.append(f"**{qn}번:** `{ans_val}번`")
                                 st.markdown("<br>".join(grid_lines), unsafe_allow_html=True)
 
@@ -285,7 +357,7 @@ def render_admin_dashboard():
                         if edit_raw_answers.strip():
                             parsed_answers = parse_answer_string(edit_raw_answers)
                         else:
-                            parsed_answers = cur_key
+                            parsed_answers = cur_key_to_show
 
                         ok, msg = save_exam(
                             exam_id=selected_eid,
@@ -296,6 +368,7 @@ def render_admin_dashboard():
                             pdf_url=edit_pdf_url.strip(),
                             answer_key=parsed_answers
                         )
+                        st.session_state.pop(f"extracted_ans_{selected_eid}", None)
                         st.success(f"✅ '{edit_title}' 시험지 설정(기본정보, PDF, 정답표)이 모두 성공적으로 저장되었습니다!")
                         st.rerun()
 

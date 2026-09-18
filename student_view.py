@@ -678,7 +678,7 @@ def render_omr_stage():
     """, unsafe_allow_html=True)
 
     exams = get_exams()
-    exam_options = list(exams.keys())
+    exam_options = sorted(list(exams.keys()), key=lambda x: str(exams[x].get("title", "")))
 
     col_meta1, col_meta2, col_meta3 = st.columns([2, 1, 1.2])
     with col_meta1:
