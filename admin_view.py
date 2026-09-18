@@ -49,12 +49,35 @@ def render_drive_folder_pdf_picker(target_session_key: str, picker_id: str, mast
     files = st.session_state.get(cache_key)
     if files:
         options = [f"{f['path']}{f['name']}" for f in files]
-        sel = st.selectbox(f"불러온 PDF 중 선택 ({len(files)}개)", options=options, key=f"sel_{picker_id}")
-        if st.button("✅ 이 파일로 연결하기", key=f"btn_pick_{picker_id}", type="primary", use_container_width=True):
-            chosen = files[options.index(sel)]
-            st.session_state[target_session_key] = chosen["link"]
-            st.toast(f"'{chosen['name']}' 파일 링크가 채워졌습니다. 아래 저장 버튼을 눌러 반영하세요.", icon="✅")
-            st.rerun()
+        sel_key = f"sel_{picker_id}"
+        st.selectbox(f"불러온 PDF 중 선택 ({len(files)}개)", options=options, key=sel_key)
+
+        msg_key = f"_picked_msg_{picker_id}"
+
+        def _apply_drive_pick(target_key=target_session_key, cache_k=cache_key, sk=sel_key, mk=msg_key):
+            # ⭐️ target_key로 지정된 위젯(예: pdf_url_xxx)이 이미 이번 스크립트 실행에서
+            # 인스턴스화된 뒤에는 session_state[target_key]를 직접 대입할 수 없다
+            # (StreamlitWidgetAlreadyInstantiatedError). 버튼의 on_click 콜백은 다음 스크립트
+            # 실행이 시작되기 전에 먼저 실행되므로, 여기서 대입해야 안전하다.
+            cur_files = st.session_state.get(cache_k) or []
+            cur_opts = [f"{f['path']}{f['name']}" for f in cur_files]
+            cur_sel = st.session_state.get(sk)
+            if cur_sel in cur_opts:
+                chosen = cur_files[cur_opts.index(cur_sel)]
+                st.session_state[target_key] = chosen["link"]
+                st.session_state[mk] = f"'{chosen['name']}' 파일 링크가 채워졌습니다. 아래 저장 버튼을 눌러 반영하세요."
+
+        st.button(
+            "✅ 이 파일로 연결하기",
+            key=f"btn_pick_{picker_id}",
+            type="primary",
+            use_container_width=True,
+            on_click=_apply_drive_pick
+        )
+
+    msg_key = f"_picked_msg_{picker_id}"
+    if st.session_state.get(msg_key):
+        st.success(f"✅ {st.session_state.pop(msg_key)}")
 
 def render_admin_dashboard(client=None):
     col_t1, col_t2 = st.columns([3, 1.2])
