@@ -472,7 +472,7 @@ def get_exams():
     except Exception:
         return DEFAULT_EXAMS
 
-def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes = None, filename: str = None, pdf_url: str = ""):
+def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes = None, filename: str = None, pdf_url: str = "", answer_key: dict = None):
     init_data_dirs()
     exams = get_exams()
     pdf_save_name = ""
@@ -487,7 +487,14 @@ def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes =
         pdf_save_name = exams[exam_id]["pdf_filename"]
 
     existing_url = exams[exam_id].get("pdf_url", "") if exam_id in exams else ""
-    final_url = pdf_url.strip() if pdf_url else existing_url
+    final_url = pdf_url.strip() if pdf_url is not None else existing_url
+
+    if answer_key is not None:
+        final_answer_key = answer_key
+    elif exam_id in exams and "answer_key" in exams[exam_id]:
+        final_answer_key = exams[exam_id]["answer_key"]
+    else:
+        final_answer_key = {}
 
     exams[exam_id] = {
         "exam_id": exam_id,
@@ -495,6 +502,7 @@ def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes =
         "total_questions": int(total_questions),
         "pdf_filename": pdf_save_name,
         "pdf_url": final_url,
+        "answer_key": final_answer_key,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
     }
     with open(EXAMS_META_FILE, "w", encoding="utf-8") as f:
