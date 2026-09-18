@@ -204,9 +204,11 @@ def build_initial_interview_question(exam_info, q_num, status_label, my_pick, co
         if matrix_type == "CONFIDENT_WRONG":
             return f"**{q_num}번** 문항이야. 정답을 확신하고 **{my_pick}번 선지(「{opt_text}」)**를 골랐지만, 실제 공식 정답은 **{corr_n}번**이었어. 지문의 「*{first_sentence}*」 내용과 관련하여, 시험 당시 어떤 지문 내용이나 생각 때문에 {my_pick}번이 정답이라고 100% 확신했었는지 핵심만 솔직하게 말해줘."
         elif matrix_type == "UNSURE_CORRECT":
-            return f"**{q_num}번** 문항이야. **{my_pick}번 선지(「{opt_text}」)**를 골라 **정답을 맞혔지만, 시험 당시 헷갈렸던 상태**였네! 지문의 「*{first_sentence}*」 내용과 관련하여, 시험 당시 몇 번 선지와 끝까지 망설였고 왜 헷갈렸는지 솔직하게 복기해 줘."
-        elif matrix_type == "LUCKY_CORRECT":
-            return f"**{q_num}번** 문항이야. **{my_pick}번 선지**로 **정답을 맞혔지만, 시간 부족이나 직관으로 찍었던 문제**네! 실전에서 완전히 내 것으로 만들기 위해, 지문의 「*{first_sentence}*」 부근에서 이 선지의 진짜 근거가 되는 핵심 문장이 무엇인지 찾아볼까?"
+            return f"**{q_num}번** 문항이야. **{my_pick}번 선지(「{opt_text}」)**를 골라 **정답을 맞혔지만, 시험 당시 확신이 없었던 상태**였네! 지문의 「*{first_sentence}*」 내용과 관련하여, 시험 당시 몇 번 선지와 끝까지 망설였고 왜 헷갈렸는지 솔직하게 복기해 줘."
+        elif matrix_type == "UNSURE_WRONG":
+            return f"**{q_num}번** 문항이야. 시험 당시 확신이 없었고 결과도 오답(**{my_pick}번**, 정답: **{corr_n}번**)이었네. 지문의 「*{first_sentence}*」 내용과 관련하여, 어떤 부분이 명확히 이해되지 않았거나 선지 판단에 어려움이 있었는지 솔직하게 말해줘."
+        elif matrix_type in ["TIMED_OUT_GUESS", "LUCKY_CORRECT"]:
+            return f"**{q_num}번** 문항이야. **시간이 부족해서 찍었던 문항**이네! (선택: **{my_pick}번**, 공식 정답: **{corr_n}번**) 실전에서 이 문항을 다시 만났을 때 빠르고 정확하게 풀 수 있도록, 지문의 「*{first_sentence}*」 부근에서 이 선지의 진짜 근거가 되는 핵심 문장이 무엇인지 함께 찾아볼까?"
         else:
             if opt_text:
                 return f"**{q_num}번** 문항이야. [{status_label}] 상태로 **{my_pick}번 선지(「{opt_text}」)**를 골랐네. 지문의 「*{first_sentence}*」 내용과 관련하여, 시험 당시 어떤 생각이나 근거로 이 선지를 답으로 판단했는지 핵심만 단도직입적으로 말해줘."
@@ -218,9 +220,12 @@ def build_initial_interview_question(exam_info, q_num, status_label, my_pick, co
             corr_mention = f"실제 공식 정답은 **{corr_n}번**이었어." if corr_n else ""
             return f"**{q_num}번** 문항이야. 정답을 확신하고 **{my_pick}번**을 골랐지만 {corr_mention} 시험 당시 왼쪽 시험지 지문의 어느 문장이나 선지의 특정 어휘 때문에 {my_pick}번이 정답이라고 확신했었는지 그 사고 과정을 말해줘."
         elif matrix_type == "UNSURE_CORRECT":
-            return f"**{q_num}번** 문항이야. **{my_pick}번**을 골라 정답을 맞혔지만 **헷갈렸던 문항**이야. 당시 몇 번 선지와 마지막까지 고민했었고, 어떤 부분 때문에 망설여졌는지 솔직하게 짚어줘."
-        elif matrix_type == "LUCKY_CORRECT":
-            return f"**{q_num}번** 문항이야. **{my_pick}번**으로 정답을 맞혔지만 **찍었던 문항**이네! 왼쪽 시험지 지문에서 이 선지의 진짜 근거가 되는 단어나 문장을 1개만 찾아볼까?"
+            return f"**{q_num}번** 문항이야. **{my_pick}번**을 골라 정답을 맞혔지만 **확신이 부족했던 문항**이야. 당시 몇 번 선지와 마지막까지 고민했었고, 어떤 부분 때문에 망설여졌는지 솔직하게 짚어줘."
+        elif matrix_type == "UNSURE_WRONG":
+            corr_mention = f"공식 정답은 **{corr_n}번**이었어." if corr_n else ""
+            return f"**{q_num}번** 문항이야. 확신이 없는 상태에서 **{my_pick}번**을 골라 오답이 되었네. {corr_mention} 지문의 어느 부분에서 해석이 막혔거나 혼란스러웠는지 편하게 말해줘."
+        elif matrix_type in ["TIMED_OUT_GUESS", "LUCKY_CORRECT"]:
+            return f"**{q_num}번** 문항이야. **시간이 부족해서 찍었던 문항**이네! 왼쪽 시험지 지문에서 이 선지의 참/거짓을 판별할 수 있는 진짜 근거 단어나 문장을 1개만 찾아볼까?"
         else:
             return f"**{q_num}번** 문항이야. [{status_label}] 상태로 **{my_pick}번**을 골랐네. 시험 당시 지문의 몇 문단, 어떤 핵심 문장이나 선지의 특정 어휘 때문에 {my_pick}번이 맞다고 판단했는지 지문 내용을 들어 핵심만 말해줘."
 
@@ -782,6 +787,7 @@ def render_omr_stage():
                         applied_count += 1
 
                 st.session_state.omr_editor_nonce = st.session_state.get("omr_editor_nonce", 0) + 1
+                st.session_state.omr_grading_result = None
                 st.success(f"총 {applied_count}개 문항의 체크박스가 자동 설정되었습니다.")
                 st.rerun()
 
@@ -802,6 +808,7 @@ def render_omr_stage():
                 ]
                 st.session_state.omr_df = pd.DataFrame(init_rows)
                 st.session_state.omr_editor_nonce = st.session_state.get("omr_editor_nonce", 0) + 1
+                st.session_state.omr_grading_result = None
                 st.info("전체 문항의 체크가 해제되었습니다. (모두 확신 상태)")
                 st.rerun()
 
@@ -876,17 +883,18 @@ def render_omr_stage():
 
     if needs_rerun:
         st.session_state.omr_editor_nonce = st.session_state.get("omr_editor_nonce", 0) + 1
+        st.session_state.omr_grading_result = None
         st.rerun()
 
-    # 상태 판정 함수
+    # 상태 판정 함수 (상호 배타 5개 영역 매핑)
     def resolve_status(row):
-        if row["🔴 오답"]:
+        if row.get("⏱️ 찍음", False):
+            return "⏱️ 찍음"
+        elif row.get("🟡 확신 없음", False):
+            return "🟡 확신 없음"
+        elif row.get("🔴 오답", False):
             return "🔴 오답"
-        elif row["⏱️ 찍음"]:
-            return "⏱️ 시간부족/찍음"
-        elif row["🟡 확신 없음"]:
-            return "🟡 확신 없는 정답"
-        return "🟢 확신 (건너뜀)"
+        return "🟢 확신"
 
     def resolve_pick(row):
         for opt_num, opt_char in [(5, "⑤"), (4, "④"), (3, "③"), (2, "②"), (1, "①")]:
@@ -953,40 +961,71 @@ def render_omr_stage():
             </div>
             """, unsafe_allow_html=True)
 
-            # 4대 메트릭스 카드 4열 표시
-            col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+            # 5대 메타인지 정오 분석 카드 5열 표시 (5개 카드의 합 = 전체 문항 수 100% 일치)
+            col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
+            
+            n_conf_corr = len(grading_res.get('confident_correct', []))
+            n_conf_wrong = len(grading_res.get('confident_wrong', []))
+            n_unsure_corr = len(grading_res.get('unsure_correct', []))
+            n_unsure_wrong = len(grading_res.get('unsure_wrong', []))
+            n_timed_guess = len(grading_res.get('timed_out_guess', []))
+            total_classified = n_conf_corr + n_conf_wrong + n_unsure_corr + n_unsure_wrong + n_timed_guess
+
             with col_m1:
                 st.markdown(f"""
-                <div style="background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 10px; padding: 10px 12px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-                    <b style="color: #991B1B; font-size: 1.02rem;">🚨 확신했으나 오답</b>
-                    <h3 style="margin: 4px 0; color: #DC2626;">{len(grading_res['confident_wrong'])}개</h3>
-                    <span style="font-size: 0.8rem; color: #7F1D1D;">평가원 킬러 함정에 완벽히 낚인 문항</span>
+                <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 10px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                    <b style="color: #065F46; font-size: 0.94rem;">⭕ 확신했고 정답</b>
+                    <h3 style="margin: 4px 0; color: #059669;">{n_conf_corr}개</h3>
+                    <span style="font-size: 0.78rem; color: #047857;">안정적 득점<br>(클리닉 불필요)</span>
                 </div>
                 """, unsafe_allow_html=True)
             with col_m2:
                 st.markdown(f"""
-                <div style="background: #FFF7ED; border: 1px solid #FDBA74; border-radius: 10px; padding: 10px 12px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-                    <b style="color: #9A3412; font-size: 1.02rem;">❌ 헷갈림/찍음 오답</b>
-                    <h3 style="margin: 4px 0; color: #EA580C;">{len(grading_res['unsure_wrong'])}개</h3>
-                    <span style="font-size: 0.8rem; color: #7C2D12;">개념·조건 파악 및 독해 사고 공백</span>
+                <div style="background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 10px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                    <b style="color: #991B1B; font-size: 0.94rem;">🚨 확신했으나 오답</b>
+                    <h3 style="margin: 4px 0; color: #DC2626;">{n_conf_wrong}개</h3>
+                    <span style="font-size: 0.78rem; color: #B91C1C;">킬러 함정 낚임<br>(우선 복원 대상)</span>
                 </div>
                 """, unsafe_allow_html=True)
             with col_m3:
                 st.markdown(f"""
-                <div style="background: #FEFCE8; border: 1px solid #FDE047; border-radius: 10px; padding: 10px 12px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-                    <b style="color: #854D0E; font-size: 1.02rem;">⚠️ 헷갈렸으나 맞힘</b>
-                    <h3 style="margin: 4px 0; color: #CA8A04;">{len(grading_res['unsure_correct'])}개</h3>
-                    <span style="font-size: 0.8rem; color: #713F12;">실전 수능에서 틀릴 수 있는 불안 요소</span>
+                <div style="background: #FEFCE8; border: 1px solid #FDE047; border-radius: 10px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                    <b style="color: #854D0E; font-size: 0.94rem;">⚠️ 확신 없으나 정답</b>
+                    <h3 style="margin: 4px 0; color: #CA8A04;">{n_unsure_corr}개</h3>
+                    <span style="font-size: 0.78rem; color: #A16207;">실전 불안 요소<br>(근거 재정립)</span>
                 </div>
                 """, unsafe_allow_html=True)
             with col_m4:
                 st.markdown(f"""
-                <div style="background: #FAF5FF; border: 1px solid #D8B4FE; border-radius: 10px; padding: 10px 12px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-                    <b style="color: #6B21A8; font-size: 1.02rem;">🎲 찍어서 맞힘</b>
-                    <h3 style="margin: 4px 0; color: #9333EA;">{len(grading_res['lucky_correct'])}개</h3>
-                    <span style="font-size: 0.8rem; color: #581C87;">본 실력이 아니므로 근거 복원 필수</span>
+                <div style="background: #FFF7ED; border: 1px solid #FDBA74; border-radius: 10px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                    <b style="color: #9A3412; font-size: 0.94rem;">❌ 확신 없고 오답</b>
+                    <h3 style="margin: 4px 0; color: #EA580C;">{n_unsure_wrong}개</h3>
+                    <span style="font-size: 0.78rem; color: #C2410C;">독해 사고 공백<br>(개념 보완)</span>
                 </div>
                 """, unsafe_allow_html=True)
+            with col_m5:
+                st.markdown(f"""
+                <div style="background: #FAF5FF; border: 1px solid #D8B4FE; border-radius: 10px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                    <b style="color: #6B21A8; font-size: 0.94rem;">⏱️ 시간이 없어서 찍음</b>
+                    <h3 style="margin: 4px 0; color: #9333EA;">{n_timed_guess}개</h3>
+                    <span style="font-size: 0.78rem; color: #7E22CE;">타임 어택 문항<br>(시간 관리 전략)</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # 5대 영역 합계 검증 배너
+            match_color = "#046663" if total_classified == total_q else "#DC2626"
+            match_txt = f"✓ 전체 문항 완벽 일치 ({total_classified}/{total_q})" if total_classified == total_q else f"⚠️ 합계 불일치 ({total_classified}/{total_q})"
+            st.markdown(f"""
+            <div style="margin-top: 10px; padding: 8px 14px; background: #F8FAFC; border-radius: 8px; border: 1px dashed #CBD5E1; font-size: 0.88rem; color: #475569; display: flex; justify-content: space-between; align-items: center;">
+                <span>
+                    📌 <b>5대 영역 분류 합계 검증</b>: 
+                    ⭕ {n_conf_corr} + 🚨 {n_conf_wrong} + ⚠️ {n_unsure_corr} + ❌ {n_unsure_wrong} + ⏱️ {n_timed_guess} = <b style="color: #0F172A;">총 {total_classified}문항</b>
+                </span>
+                <span style="color: {match_color}; font-weight: 700;">
+                    {match_txt}
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
 
             st.write("")
             
@@ -1106,21 +1145,27 @@ def get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick
     meta_guide = ""
     if matrix_type == "CONFIDENT_WRONG":
         meta_guide = f"""
-[🎯 메타인지 코칭 지침: 🚨 확신 오답 (평가원 킬러 함정)]
+[🎯 메타인지 코칭 지침: 🚨 확신했으나 오답 (평가원 킬러 함정)]
 - 학생은 정답을 완전히 확신하고 오답인 {my_pick}번을 골랐습니다. (공식 정답: {corr_num}번)
 - 학생이 지문의 내용을 어떤 방식으로 자기 마음대로 왜곡(선지 임의 변형, 과잉 인과, 전제 조건 누락 등)하여 읽었는지 학생의 답변을 통해 스스로 실토하도록 유도하십시오.
 """
     elif matrix_type == "UNSURE_CORRECT":
         meta_guide = f"""
-[🎯 메타인지 코칭 지침: ⚠️ 헷갈렸으나 맞힘 (실전 불안 요소)]
-- 학생은 정답인 {my_pick}번을 맞히긴 했으나, 시험 당시 다른 오답 선지와 헷갈렸던 상태입니다.
-- 어떤 다른 선지와 마지막까지 갈등했는지, 왜 그 오답 선지가 매력적으로 느껴져 망설였는지 질문하여 다음에는 100% 확신을 갖고 풀 수 있는 기준을 정립시키십시오.
+[🎯 메타인지 코칭 지침: ⚠️ 확신 없으나 정답 (실전 불안 요소)]
+- 학생은 정답인 {my_pick}번을 맞히긴 했으나, 시험 당시 확신이 없어 다른 선지와 망설였던 상태입니다.
+- 어떤 다른 오답 선지와 마지막까지 갈등했는지, 왜 그 선지가 매력적으로 느껴져 망설였는지 질문하여 다음에는 100% 확신을 갖고 고를 수 있는 판단 기준을 정립시키십시오.
 """
-    elif matrix_type == "LUCKY_CORRECT":
+    elif matrix_type == "UNSURE_WRONG":
         meta_guide = f"""
-[🎯 메타인지 코칭 지침: 🎲 찍어서 맞힘 (행운의 정답)]
-- 학생은 정답인 {my_pick}번을 맞혔지만, 시간 부족이나 직관으로 찍어서 맞혔습니다.
-- 학생에게 지문에서 이 선지의 참/거짓을 판별할 수 있는 진짜 '결정적 근거 문장'을 찾아보도록 질문하십시오.
+[🎯 메타인지 코칭 지침: ❌ 확신 없고 오답 (독해 사고 공백)]
+- 학생은 풀면서도 확신이 없었으며 결국 오답({my_pick}번)을 골랐습니다. (공식 정답: {corr_num}번)
+- 개념이나 조건 이해에 공백이 있었거나, 지문의 핵심 문장을 제대로 파악하지 못했던 원인을 짚어 개념적 구멍을 메우도록 이끄십시오.
+"""
+    elif matrix_type in ["TIMED_OUT_GUESS", "LUCKY_CORRECT"]:
+        meta_guide = f"""
+[🎯 메타인지 코칭 지침: ⏱️ 시간이 없어서 찍음 (타임 어택 및 시간 관리)]
+- 학생은 시험장 시간 부족 또는 직관으로 {my_pick}번을 찍은 상태입니다. (공식 정답: {corr_num}번)
+- 시험 운영상 앞선 문항에서 시간이 지체된 원인을 짚어보고, 이 문항에서 선지의 참/거짓을 판별할 수 있는 진짜 '결정적 근거 문장'을 신속하게 발췌독하는 전략을 수립시키십시오.
 """
 
     return f"""

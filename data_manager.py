@@ -817,7 +817,13 @@ def extract_answers_from_drive_or_url(url: str, client=None) -> tuple:
 def grade_student_omr(exam_id: str, omr_rows: list) -> dict:
     """
     학생의 OMR 마킹 데이터(list of dict with 'q_num', 'selected_opt', 'state')와
-    시험지의 공식 정답표를 대조하여 자동 정오 판정 및 메타인지 4대 매트릭스 분류
+    시험지의 공식 정답표를 대조하여 자동 정오 판정 및 메타인지 5대 매트릭스 분류:
+    1. ⭕ 확신했고 정답 (confident_correct)
+    2. 🚨 확신했으나 오답 (confident_wrong)
+    3. ⚠️ 확신 없으나 정답 (unsure_correct)
+    4. ❌ 확신 없고 오답 (unsure_wrong)
+    5. ⏱️ 시간이 없어서 찍음 (timed_out_guess)
+    (5개 카테고리의 문항 수 합 = 전체 문항 수 45문항 100% 일치)
     """
     answer_key = get_exam_answer_key(exam_id)
     has_answer_key = bool(answer_key)
@@ -826,12 +832,12 @@ def grade_student_omr(exam_id: str, omr_rows: list) -> dict:
     correct_count = 0
     wrong_count = 0
     
-    # 메타인지 매트릭스별 문항 번호 리스트
-    confident_wrong = []   # 🚨 확신 오답 (치명적 함정)
-    unsure_wrong = []      # ❌ 헷갈림/찍음 오답 (사고 공백)
-    unsure_correct = []    # ⚠️ 헷갈렸으나 정답 (실전 위험)
-    lucky_correct = []     # 🎲 찍어서 정답 (행운의 정답)
-    confident_correct = [] # ⭕ 확신 정답 (안정적 득점)
+    # 메타인지 5대 매트릭스별 문항 번호 리스트
+    confident_correct = [] # 1. ⭕ 확신했고 정답 (안정적 득점, 클리닉 불필요)
+    confident_wrong = []   # 2. 🚨 확신했으나 오답 (킬러 함정, 최우선 클리닉)
+    unsure_correct = []    # 3. ⚠️ 확신 없으나 정답 (불안 요소, 근거 재정립)
+    unsure_wrong = []      # 4. ❌ 확신 없고 오답 (사고 공백, 개념 보완)
+    timed_out_guess = []   # 5. ⏱️ 시간이 없어서 찍음 (타임 어택, 시간 관리)
     
     for row in omr_rows:
         q_num = int(row.get("q_num", 0))
@@ -854,38 +860,47 @@ def grade_student_omr(exam_id: str, omr_rows: list) -> dict:
             
         if is_correct:
             correct_count += 1
-            if "찍음" in user_state or "별" in user_state:
-                matrix_type = "LUCKY_CORRECT"
-                matrix_label = "🎲 찍어서 맞힘"
-                matrix_badge = "🎲 찍어서 맞힘 (행운)"
-                needs_clinic = True
-                lucky_correct.append(q_num)
-            elif "헷갈림" in user_state or "세모" in user_state:
+        else:
+            wrong_count += 1
+            
+        # ⭐️ 메타인지 5대 상호 배타적(Mutually Exclusive) 상태 판정
+        is_timed_out = any(k in user_state for k in ["찍음", "시간", "별"])
+        is_unsure = (not is_timed_out) and any(k in user_state for k in ["확신 없음", "확신 없는", "오답", "틀림", "헷갈림", "세모"])
+        # 나머지(체크박스 아무것도 안 누른 기본 상태 포함)는 확신
+        is_confident = (not is_timed_out) and (not is_unsure)
+        
+        if is_timed_out:
+            matrix_type = "TIMED_OUT_GUESS"
+            matrix_label = "⏱️ 시간이 없어서 찍음"
+            matrix_badge = "⏱️ 시간이 없어서 찍음" + (" (정답 맞힘)" if is_correct else " (오답)")
+            needs_clinic = True
+            timed_out_guess.append(q_num)
+        elif is_unsure:
+            if is_correct:
                 matrix_type = "UNSURE_CORRECT"
-                matrix_label = "⚠️ 헷갈렸으나 맞힘"
-                matrix_badge = "⚠️ 헷갈렸으나 맞힘 (불안)"
+                matrix_label = "⚠️ 확신 없으나 정답"
+                matrix_badge = "⚠️ 확신 없으나 정답 (불안 요소)"
                 needs_clinic = True
                 unsure_correct.append(q_num)
             else:
-                matrix_type = "CONFIDENT_CORRECT"
-                matrix_label = "⭕ 확신하고 맞힘"
-                matrix_badge = "⭕ 확신 정답"
-                needs_clinic = False
-                confident_correct.append(q_num)
-        else:
-            wrong_count += 1
-            if "확신" in user_state:
-                matrix_type = "CONFIDENT_WRONG"
-                matrix_label = "🚨 확신했으나 오답"
-                matrix_badge = "🚨 확신 오답 (킬러 함정)"
-                needs_clinic = True
-                confident_wrong.append(q_num)
-            else:
                 matrix_type = "UNSURE_WRONG"
-                matrix_label = "❌ 오답 (헷갈림/찍음)"
-                matrix_badge = "❌ 헷갈림/찍음 오답"
+                matrix_label = "❌ 확신 없고 오답"
+                matrix_badge = "❌ 확신 없고 오답 (사고 공백)"
                 needs_clinic = True
                 unsure_wrong.append(q_num)
+        else: # is_confident
+            if is_correct:
+                matrix_type = "CONFIDENT_CORRECT"
+                matrix_label = "⭕ 확신했고 정답"
+                matrix_badge = "⭕ 확신했고 정답 (안정적 득점)"
+                needs_clinic = False
+                confident_correct.append(q_num)
+            else:
+                matrix_type = "CONFIDENT_WRONG"
+                matrix_label = "🚨 확신했으나 오답"
+                matrix_badge = "🚨 확신했으나 오답 (킬러 함정)"
+                needs_clinic = True
+                confident_wrong.append(q_num)
                 
         graded_items.append({
             "q_num": q_num,
@@ -899,17 +914,21 @@ def grade_student_omr(exam_id: str, omr_rows: list) -> dict:
             "needs_clinic": needs_clinic
         })
         
+    # 하위 호환성 (찍어서 맞힌 문제)
+    lucky_correct = [q for q in timed_out_guess if any(item["q_num"] == q and item["is_correct"] for item in graded_items)]
+    
     return {
         "has_answer_key": has_answer_key,
         "total": len(omr_rows),
         "correct_count": correct_count,
         "wrong_count": wrong_count,
-        "clinic_count": len(confident_wrong) + len(unsure_wrong) + len(unsure_correct) + len(lucky_correct),
-        "confident_wrong": confident_wrong,
-        "unsure_wrong": unsure_wrong,
-        "unsure_correct": unsure_correct,
-        "lucky_correct": lucky_correct,
+        "clinic_count": len(confident_wrong) + len(unsure_wrong) + len(unsure_correct) + len(timed_out_guess),
         "confident_correct": confident_correct,
+        "confident_wrong": confident_wrong,
+        "unsure_correct": unsure_correct,
+        "unsure_wrong": unsure_wrong,
+        "timed_out_guess": timed_out_guess,
+        "lucky_correct": lucky_correct,
         "graded_items": graded_items
     }
 
