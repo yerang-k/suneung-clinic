@@ -154,7 +154,7 @@ def render_admin_dashboard():
                 st.markdown("##### 🎯 공식 정답표 (선택 사항)")
                 st.caption("평가원 정답표의 숫자들을 그대로 복사해 붙여넣으면 1~45번 정답표가 자동 등록됩니다.")
                 new_ans_str = st.text_area(
-                    "1~45번 정답 빠른 붙여넣기 (1~5 숫자 나열)",
+                    "1번~45번 정답 빠른 붙여넣기 (1부터 5까지 숫자)",
                     placeholder="예: 11423 53423 25415 35413 24153 24253 41523 41523 41523",
                     key="new_ans_str_input"
                 )
@@ -248,7 +248,7 @@ def render_admin_dashboard():
                 ]).strip()
 
                 edit_raw_answers = st.text_area(
-                    "1~45번 정답 빠른 붙여넣기 (공백/줄바꿈 무관, 1~5 숫자 나열)",
+                    "1번~45번 정답 빠른 붙여넣기 (공백/줄바꿈 무관, 1부터 5까지 숫자)",
                     value=preview_raw_str,
                     placeholder="예: 11423 53423 25415 35413 24153 24253 41523 41523 41523",
                     key=f"ans_text_{selected_eid}",
