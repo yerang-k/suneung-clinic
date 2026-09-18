@@ -26,7 +26,7 @@ DEFAULT_CONFIG = {
     "gemini_api_key": "",
     "google_drive_folder_url": "https://drive.google.com/drive/folders/sample-kice-past-exams-archive",
     "gas_api_url": "",
-    "drive_api_key": ""
+    "drive_service_account_json": ""
 }
 
 DEFAULT_STUDENTS = [
@@ -818,23 +818,55 @@ def extract_drive_folder_id(url: str) -> str:
         return m2.group(1)
     return ""
 
-def list_drive_folder_pdfs(folder_url: str, api_key: str, max_files: int = 300, max_depth: int = 4) -> tuple:
+def _get_drive_access_token(service_account_json: str) -> tuple:
+    """
+    서비스 계정 키(JSON)로 구글 드라이브 API용 OAuth2 액세스 토큰을 발급합니다.
+    (구글 드라이브 API는 API 키만으로는 files.list를 지원하지 않고 반드시
+    OAuth2 인증 주체를 요구하므로, 사람이 로그인하지 않아도 되는 서비스 계정을 사용합니다.)
+    반환: (access_token, error_message)
+    """
+    try:
+        from google.oauth2 import service_account as gsa
+        import google.auth.transport.requests as gareq
+    except Exception:
+        return None, "이 기능에 필요한 구글 인증 라이브러리(google-auth)를 찾을 수 없습니다."
+
+    try:
+        sa_info = json.loads(service_account_json)
+    except Exception:
+        return None, "서비스 계정 키가 올바른 JSON 형식이 아닙니다. 다운로드한 JSON 파일의 전체 내용을 그대로 붙여넣었는지 확인해 주세요."
+
+    try:
+        creds = gsa.Credentials.from_service_account_info(
+            sa_info, scopes=["https://www.googleapis.com/auth/drive.readonly"]
+        )
+        creds.refresh(gareq.Request())
+        return creds.token, ""
+    except Exception as e:
+        return None, f"서비스 계정 인증에 실패했습니다: {e}"
+
+def list_drive_folder_pdfs(folder_url: str, service_account_json: str, max_files: int = 300, max_depth: int = 4) -> tuple:
     """
     '링크가 있는 모든 사용자'로 공개된 구글 드라이브 폴더 안의 PDF 파일 목록을
-    구글 드라이브 API v3(API 키만 사용, OAuth 불필요)로 조회합니다.
+    구글 드라이브 API v3(서비스 계정 인증)로 조회합니다.
     하위 폴더(연도/월별 정리 등)까지 재귀적으로 탐색합니다.
     반환: (files, error_message) — files는 [{"id", "name", "path", "link"}, ...]
     """
     folder_url = (folder_url or "").strip()
-    api_key = (api_key or "").strip()
+    service_account_json = (service_account_json or "").strip()
     if not folder_url:
         return [], "구글 드라이브 마스터 폴더 링크가 설정되어 있지 않습니다. [마스터 연동 및 시스템 설정] 탭에서 먼저 등록해 주세요."
-    if not api_key:
-        return [], "구글 드라이브 API 키가 설정되어 있지 않습니다. [마스터 연동 및 시스템 설정] 탭에서 등록해 주세요."
+    if not service_account_json:
+        return [], "구글 드라이브 서비스 계정 키가 설정되어 있지 않습니다. [마스터 연동 및 시스템 설정] 탭에서 등록해 주세요."
 
     root_id = extract_drive_folder_id(folder_url)
     if not root_id:
         return [], "구글 드라이브 폴더 링크에서 폴더 ID를 인식하지 못했습니다."
+
+    access_token, token_err = _get_drive_access_token(service_account_json)
+    if not access_token:
+        return [], token_err
+    headers = {"Authorization": f"Bearer {access_token}"}
 
     files = []
     queue = [(root_id, "", 0)]
@@ -846,7 +878,6 @@ def list_drive_folder_pdfs(folder_url: str, api_key: str, max_files: int = 300, 
             while True:
                 params = {
                     "q": f"'{cur_id}' in parents and trashed = false",
-                    "key": api_key,
                     "fields": "nextPageToken, files(id, name, mimeType)",
                     "pageSize": 100,
                     "supportsAllDrives": "true",
@@ -854,10 +885,10 @@ def list_drive_folder_pdfs(folder_url: str, api_key: str, max_files: int = 300, 
                 }
                 if page_token:
                     params["pageToken"] = page_token
-                resp = requests.get("https://www.googleapis.com/drive/v3/files", params=params, timeout=15)
+                resp = requests.get("https://www.googleapis.com/drive/v3/files", params=params, headers=headers, timeout=15)
                 if resp.status_code != 200:
                     err_msg = resp.json().get("error", {}).get("message", resp.text[:200]) if resp.text else f"HTTP {resp.status_code}"
-                    return files, f"구글 드라이브 목록 조회 실패: {err_msg}\n(API 키가 유효한지, 'Google Drive API'가 활성화되어 있는지, 폴더가 '링크가 있는 모든 사용자'로 공유되어 있는지 확인해 주세요.)"
+                    return files, f"구글 드라이브 목록 조회 실패: {err_msg}\n(서비스 계정 키가 유효한지, 'Google Drive API'가 활성화되어 있는지, 폴더가 '링크가 있는 모든 사용자'로 공유되어 있는지 확인해 주세요.)"
                 data = resp.json()
                 for item in data.get("files", []):
                     mime = item.get("mimeType", "")
