@@ -1131,6 +1131,20 @@ def get_exam_pdf_source(exam_id: str):
 
     return None, None, None
 
+def exam_has_own_pdf(exam_id: str) -> bool:
+    """
+    해당 시험지에 교사가 직접 연결한 원문 PDF(파일 업로드 또는 구글 드라이브 링크)가
+    있는지 확인합니다. get_exam_pdf_source()와 달리 내장 기출 프리셋이나 마스터 폴더
+    폴백은 포함하지 않습니다 — 학생 화면의 시험지 선택 목록을 필터링할 때 사용합니다.
+    """
+    exams = get_exams()
+    ex = exams.get(exam_id)
+    if not ex:
+        return False
+    if get_exam_pdf_path(exam_id):
+        return True
+    return bool((ex.get("pdf_url") or "").strip())
+
 # --- 진단 제출 로그 (Submissions) ---
 def save_submission(sub_data: dict):
     init_data_dirs()

@@ -10,7 +10,7 @@ from data_manager import (
     call_gemini_safe, save_student_progress, get_student_progress,
     clear_student_progress, get_effective_api_key,
     save_student_api_key, clear_student_api_key,
-    grade_student_omr, get_exam_answer_key, get_sorted_exam_keys
+    grade_student_omr, get_exam_answer_key, get_sorted_exam_keys, exam_has_own_pdf
 )
 try:
     from pdf_viewer import render_pdf_viewer, render_csat_text_view
@@ -689,8 +689,14 @@ def render_omr_stage():
     """, unsafe_allow_html=True)
 
     exams = get_exams()
-    # ⭐️ 시험지 목록을 최신순(최근 연도 및 시험 시기 우선)으로 정렬
-    exam_options = get_sorted_exam_keys(exams, reverse=True)
+    # ⭐️ 시험지 목록을 최신순(최근 연도 및 시험 시기 우선)으로 정렬 후,
+    # 선생님이 원문 PDF(파일 업로드 또는 구글 드라이브 링크)를 연동해 둔 시험지만 노출
+    sorted_all_ids = get_sorted_exam_keys(exams, reverse=True)
+    exam_options = [eid for eid in sorted_all_ids if exam_has_own_pdf(eid)]
+
+    if not exam_options:
+        st.info("💡 아직 선생님이 원문 PDF를 연결한 시험지가 없습니다. 등록될 때까지 잠시 기다려 주세요.")
+        return
 
     col_meta1, col_meta2, col_meta3 = st.columns([2, 1, 1.2])
     with col_meta1:
