@@ -1516,6 +1516,26 @@ def render_report_stage(client):
         </div>
         """, unsafe_allow_html=True)
 
+    # 시험지 공식 정답표 구글 드라이브 링크가 있는 경우 바로가기 제공
+    ans_pdf_url = exam_info.get("answer_pdf_url", "")
+    if not ans_pdf_url and "current_exam_id" in st.session_state:
+        all_exams = get_exams()
+        ans_pdf_url = all_exams.get(st.session_state.current_exam_id, {}).get("answer_pdf_url", "")
+
+    if ans_pdf_url and ans_pdf_url.startswith("http"):
+        st.markdown(f"""
+        <div style="background-color: #F8F9FA; border: 1px solid #DCE6F1; border-left: 4px solid #1A73E8; padding: 12px 18px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+            <span style="color: #0E0E29; font-weight: 600;">
+                📄 이번 시험({exam_info['title']})의 <b>평가원 공식 정답표 원문 PDF</b>가 연동되어 있습니다.
+            </span>
+            <a href="{ans_pdf_url}" target="_blank" style="text-decoration: none;">
+                <button style="background-color: #1A73E8; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+                    공식 정답표 원문 열기 ↗
+                </button>
+            </a>
+        </div>
+        """, unsafe_allow_html=True)
+
     col_sum1, col_sum2, col_sum3 = st.columns(3)
     with col_sum1:
         st.metric("학생 이름", f"{student['name']} ({student['student_id']})")

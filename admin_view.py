@@ -6,6 +6,7 @@ from data_manager import (
     get_exams, save_exam, get_exam_pdf_base64, get_sorted_exam_keys,
     attach_pdf_to_exam, get_exam_pdf_source, delete_exam,
     get_exam_answer_key, save_exam_answer_key, parse_answer_string, extract_answers_from_pdf,
+    download_pdf_from_drive_or_url, extract_answers_from_drive_or_url,
     get_submissions, get_student_vulnerability_profile, get_student_submissions,
     sync_from_google_sheets, push_all_to_google_sheets, get_last_sync_time, get_gas_api_url
 )
@@ -121,7 +122,7 @@ def render_admin_dashboard(client=None):
             selected_eid = st.selectbox(
                 "📋 관리할 시험지를 선택하세요",
                 options=exam_options,
-                format_func=lambda x: NEW_EXAM_OPT if x == NEW_EXAM_OPT else f"{exams[x]['title']} ({exams[x].get('total_questions', 45)}문항) - {'✅ PDF 연결됨' if (exams[x].get('pdf_filename') or exams[x].get('pdf_url')) else '❌ PDF 없음'}",
+                format_func=lambda x: NEW_EXAM_OPT if x == NEW_EXAM_OPT else f"{exams[x]['title']} ({exams[x].get('total_questions', 45)}문항) - {'✅ PDF 연결됨' if (exams[x].get('pdf_filename') or exams[x].get('pdf_url')) else '❌ PDF 없음'}{' | 🔗 정답표 연동' if exams[x].get('answer_pdf_url') else ''}",
                 help="시험지를 선택하면 아래에 해당 시험지의 모든 설정(기본정보, PDF, 정답표)이 표시됩니다."
             )
 
@@ -154,30 +155,46 @@ def render_admin_dashboard(client=None):
                     new_pdf_url = st.text_input("구글 드라이브 PDF 공유 링크", placeholder="https://drive.google.com/file/d/.../view?usp=sharing", key="new_pdf_url_input")
 
                 st.markdown("##### 🎯 공식 정답표 (선택 사항)")
-                st.caption("평가원 정답표 PDF를 업로드하면 AI가 1~45번 정답을 자동으로 판독해 채워줍니다.")
+                st.caption("평가원 정답표 PDF(파일 업로드 또는 구글 드라이브 링크)를 제공하면 AI가 1~45번 정답을 자동으로 판독해 채워줍니다.")
 
-                # 새 시험지 정답표 PDF 업로드 컨테이너
+                # 새 시험지 정답표 PDF 업로드 및 구글 드라이브 연동 컨테이너
                 with st.container(border=True):
-                    st.markdown("###### 📄 평가원 공식 정답표 PDF로 자동 채우기")
-                    col_nap1, col_nap2 = st.columns([2.5, 1])
+                    st.markdown("###### 📄 평가원 공식 정답표 PDF 연동 및 자동 채우기")
+                    col_nap1, col_nap2 = st.columns(2)
                     with col_nap1:
+                        st.markdown("**방법 A: 내 컴퓨터에서 정답표 PDF 업로드**")
                         new_ans_pdf_file = st.file_uploader("정답표 PDF 파일 선택", type=["pdf"], key="new_exam_ans_pdf_uploader")
                     with col_nap2:
-                        st.write("")
-                        st.write("")
-                        if st.button("⚡ 정답 자동 추출", type="secondary", use_container_width=True, key="btn_extract_new_ans"):
-                            if not new_ans_pdf_file:
-                                st.warning("정답표 PDF 파일을 먼저 선택해 주세요.")
+                        st.markdown("**방법 B: 구글 드라이브 정답표 PDF 공유 링크 (강력 추천)**")
+                        st.caption("💡 구글 드라이브 링크를 연결해두면 배포 서버가 재시작되어도 정답표가 영구 보존됩니다.")
+                        new_ans_pdf_url = st.text_input("정답표 구글 드라이브 링크", placeholder="https://drive.google.com/file/d/.../view?usp=sharing", key="new_ans_pdf_url_input")
+
+                    col_abtn1, col_abtn2 = st.columns([2, 1])
+                    with col_abtn1:
+                        if st.button("⚡ 정답 자동 추출 (AI 판독)", type="secondary", use_container_width=True, key="btn_extract_new_ans"):
+                            target_bytes = None
+                            if new_ans_pdf_file is not None:
+                                target_bytes = new_ans_pdf_file.read()
+                            elif new_ans_pdf_url.strip():
+                                with st.spinner("구글 드라이브에서 정답표 PDF를 내려받는 중입니다..."):
+                                    target_bytes, dl_err = download_pdf_from_drive_or_url(new_ans_pdf_url.strip())
+                                    if not target_bytes:
+                                        st.error(dl_err)
                             else:
+                                st.warning("정답표 PDF 파일을 올리거나 구글 드라이브 링크를 입력해 주세요.")
+
+                            if target_bytes:
                                 with st.spinner("AI가 정답표 PDF를 분석 중입니다..."):
-                                    pdf_bytes = new_ans_pdf_file.read()
-                                    extracted_dict, msg = extract_answers_from_pdf(pdf_bytes, client=client)
+                                    extracted_dict, msg = extract_answers_from_pdf(target_bytes, client=client)
                                     if extracted_dict:
                                         st.session_state["new_extracted_ans"] = extracted_dict
                                         st.toast(msg, icon="✅")
                                         st.rerun()
                                     else:
                                         st.error(msg)
+                    with col_abtn2:
+                        if new_ans_pdf_url.strip():
+                            st.link_button("🔗 정답표 열기 ↗", new_ans_pdf_url.strip(), use_container_width=True)
 
                 new_extracted = st.session_state.get("new_extracted_ans", {})
                 if new_extracted:
@@ -212,6 +229,7 @@ def render_admin_dashboard(client=None):
                             pdf_bytes=pdf_bytes,
                             filename=fname,
                             pdf_url=new_pdf_url.strip(),
+                            answer_pdf_url=new_ans_pdf_url.strip(),
                             answer_key=parsed_ans
                         )
                         st.session_state.pop("new_extracted_ans", None)
@@ -237,7 +255,9 @@ def render_admin_dashboard(client=None):
                     st.caption(f"시험 코드: `{cur_exam['exam_id']}` | 등록일: {cur_exam.get('created_at', '-')}")
                 with col_h2:
                     pdf_badge = "🟢 PDF 연결됨" if has_pdf else "🔴 PDF 없음"
-                    ans_badge = f"🟢 정답표 ({ans_count}/{total_q})" if ans_count >= total_q else (f"🟡 정답표 일부 ({ans_count}/{total_q})" if ans_count > 0 else "🔴 정답표 미등록")
+                    has_ans_drive = bool(cur_exam.get("answer_pdf_url"))
+                    ans_drive_badge = " (🔗 드라이브)" if has_ans_drive else ""
+                    ans_badge = f"🟢 정답표 ({ans_count}/{total_q}){ans_drive_badge}" if ans_count >= total_q else (f"🟡 정답표 일부 ({ans_count}/{total_q}){ans_drive_badge}" if ans_count > 0 else f"🔴 정답표 미등록{ans_drive_badge}")
                     st.markdown(f"<div style='text-align: right; padding-top: 5px;'><b>상태:</b> {pdf_badge} | {ans_badge}</div>", unsafe_allow_html=True)
 
                 st.divider()
@@ -276,33 +296,56 @@ def render_admin_dashboard(client=None):
                 st.markdown("##### 3️⃣ 공식 정답표 (Answer Key)")
                 st.caption("공식 정답표를 넣어두면 학생의 OMR 채점 및 메타인지 4대 매트릭스(확신정답, 불안정답, 오답, 찍음)가 자동 판정됩니다.")
 
-                # ⭐️ 정답표 PDF 파일 업로드로 자동 채우기
+                # ⭐️ 정답표 PDF 파일 업로드 및 구글 드라이브 연동으로 자동 채우기
                 with st.container(border=True):
-                    st.markdown("###### 📄 평가원 공식 정답표 PDF로 자동 채우기")
-                    st.caption("평가원 정답표 PDF 파일을 올리고 [⚡ 정답 자동 추출] 버튼을 누르면 AI가 1~45번 정답 번호를 자동으로 판독해 채워줍니다.")
-                    col_ap1, col_ap2 = st.columns([2.5, 1])
+                    st.markdown("###### 📄 평가원 공식 정답표 PDF 연동 및 자동 채우기")
+                    st.caption("내 컴퓨터에서 정답표 PDF를 올리거나 **구글 드라이브 정답표 PDF 공유 링크**를 연결하고 [⚡ 정답 자동 추출]을 누르면 AI가 1~45번 정답을 자동으로 판독해 채워줍니다.")
+
+                    col_ap1, col_ap2 = st.columns(2)
                     with col_ap1:
+                        st.markdown("**방법 A: 내 컴퓨터에서 정답표 PDF 업로드**")
                         ans_pdf_file = st.file_uploader(
                             "공식 정답표 PDF 파일 선택",
                             type=["pdf"],
                             key=f"ans_pdf_upload_{selected_eid}"
                         )
                     with col_ap2:
-                        st.write("")
-                        st.write("")
-                        if st.button("⚡ 정답 자동 추출", type="secondary", use_container_width=True, key=f"btn_extract_ans_{selected_eid}"):
-                            if not ans_pdf_file:
-                                st.warning("정답표 PDF 파일을 먼저 선택해 주세요.")
+                        st.markdown("**방법 B: 구글 드라이브 정답표 PDF 공유 링크 (강력 추천)**")
+                        st.caption("💡 구글 드라이브 링크를 연결해두면 배포 환경이 재부팅되어도 정답표가 영구 보존됩니다.")
+                        edit_ans_pdf_url = st.text_input(
+                            "정답표 구글 드라이브 링크",
+                            value=cur_exam.get("answer_pdf_url", ""),
+                            placeholder="https://drive.google.com/file/d/.../view?usp=sharing",
+                            key=f"ans_pdf_url_{selected_eid}"
+                        )
+
+                    col_bbtn1, col_bbtn2 = st.columns([2, 1])
+                    with col_bbtn1:
+                        if st.button("⚡ 정답 자동 추출 (AI 판독)", type="secondary", use_container_width=True, key=f"btn_extract_ans_{selected_eid}"):
+                            target_bytes = None
+                            if ans_pdf_file is not None:
+                                target_bytes = ans_pdf_file.read()
+                            elif edit_ans_pdf_url.strip():
+                                with st.spinner("구글 드라이브에서 정답표 PDF를 내려받는 중입니다..."):
+                                    target_bytes, dl_err = download_pdf_from_drive_or_url(edit_ans_pdf_url.strip())
+                                    if not target_bytes:
+                                        st.error(dl_err)
                             else:
+                                st.warning("정답표 PDF 파일을 선택하시거나 구글 드라이브 정답표 링크를 입력해 주세요.")
+
+                            if target_bytes:
                                 with st.spinner("AI가 정답표 PDF를 분석하여 1~45번 정답을 판독 중입니다..."):
-                                    pdf_bytes = ans_pdf_file.read()
-                                    extracted_dict, msg = extract_answers_from_pdf(pdf_bytes, client=client)
+                                    extracted_dict, msg = extract_answers_from_pdf(target_bytes, client=client)
                                     if extracted_dict:
                                         st.session_state[f"extracted_ans_{selected_eid}"] = extracted_dict
                                         st.toast(msg, icon="✅")
                                         st.rerun()
                                     else:
                                         st.error(msg)
+                    with col_bbtn2:
+                        active_ans_link = edit_ans_pdf_url.strip() or cur_exam.get("answer_pdf_url", "")
+                        if active_ans_link:
+                            st.link_button("🔗 정답표 열기 ↗", active_ans_link, use_container_width=True)
 
                 # 세션에 방금 추출된 정답이 있다면 그것을 우선 사용
                 extracted_for_cur = st.session_state.get(f"extracted_ans_{selected_eid}")
@@ -366,6 +409,7 @@ def render_admin_dashboard(client=None):
                             pdf_bytes=pdf_bytes,
                             filename=fname,
                             pdf_url=edit_pdf_url.strip(),
+                            answer_pdf_url=edit_ans_pdf_url.strip(),
                             answer_key=parsed_answers
                         )
                         st.session_state.pop(f"extracted_ans_{selected_eid}", None)

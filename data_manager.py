@@ -509,7 +509,7 @@ def get_sorted_exam_keys(exams: dict = None, reverse: bool = True) -> list:
 
     return sorted(list(exams.keys()), key=_sort_key, reverse=reverse)
 
-def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes = None, filename: str = None, pdf_url: str = "", answer_key: dict = None):
+def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes = None, filename: str = None, pdf_url: str = "", answer_key: dict = None, answer_pdf_url: str = ""):
     init_data_dirs()
     exams = get_exams()
     pdf_save_name = ""
@@ -526,6 +526,9 @@ def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes =
     existing_url = exams[exam_id].get("pdf_url", "") if exam_id in exams else ""
     final_url = pdf_url.strip() if pdf_url is not None else existing_url
 
+    existing_ans_url = exams[exam_id].get("answer_pdf_url", "") if exam_id in exams else ""
+    final_ans_url = answer_pdf_url.strip() if answer_pdf_url is not None else existing_ans_url
+
     if answer_key is not None:
         final_answer_key = answer_key
     elif exam_id in exams and "answer_key" in exams[exam_id]:
@@ -539,8 +542,9 @@ def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes =
         "total_questions": int(total_questions),
         "pdf_filename": pdf_save_name,
         "pdf_url": final_url,
+        "answer_pdf_url": final_ans_url,
         "answer_key": final_answer_key,
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+        "created_at": exams[exam_id].get("created_at") if (exam_id in exams and exams[exam_id].get("created_at")) else datetime.now().strftime("%Y-%m-%d %H:%M")
     }
     with open(EXAMS_META_FILE, "w", encoding="utf-8") as f:
         json.dump(exams, f, ensure_ascii=False, indent=2)
@@ -734,6 +738,81 @@ def extract_answers_from_pdf(pdf_bytes: bytes, client=None) -> tuple[dict, str]:
 
     return {}, "정답표 PDF에서 정답을 자동으로 판독하지 못했습니다. PDF 내용이 선명한지 확인하시거나 정답 번호를 직접 입력해 주세요."
 
+def download_pdf_from_drive_or_url(url: str) -> tuple:
+    """
+    구글 드라이브 공유 링크 또는 일반 웹 URL에서 PDF 바이너리 데이터를 안전하게 다운로드합니다.
+    (반환: (pdf_bytes, error_message))
+    """
+    if not url or not str(url).strip():
+        return None, "URL이 입력되지 않았습니다."
+
+    clean_url = str(url).strip()
+    session = requests.Session()
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+
+    # 1. 구글 드라이브 URL에서 file_id 추출
+    file_id = ""
+    m1 = re.search(r"drive\.google\.com/file/d/([a-zA-Z0-9_-]+)", clean_url)
+    if m1:
+        file_id = m1.group(1)
+    if not file_id:
+        m2 = re.search(r"[?&]id=([a-zA-Z0-9_-]+)", clean_url)
+        if m2:
+            file_id = m2.group(1)
+    if not file_id:
+        m3 = re.search(r"docs\.google\.com/(?:file|document)/d/([a-zA-Z0-9_-]+)", clean_url)
+        if m3:
+            file_id = m3.group(1)
+
+    if file_id:
+        # 구글 드라이브 직접 다운로드 엔드포인트 후보군
+        candidate_urls = [
+            f"https://drive.usercontent.google.com/download?id={file_id}&export=download&authuser=0",
+            f"https://drive.google.com/uc?export=download&id={file_id}",
+            f"https://docs.google.com/uc?export=download&id={file_id}"
+        ]
+        for dl_url in candidate_urls:
+            try:
+                resp = session.get(dl_url, headers=headers, timeout=20, allow_redirects=True)
+                # 바이러스 검사 경고(대용량 파일 시) 컨펌 토큰 처리
+                if "download_warning" in resp.text:
+                    token_match = re.search(r'confirm=([0-9A-Za-z_]+)', resp.text)
+                    if token_match:
+                        confirm_token = token_match.group(1)
+                        confirm_url = f"{dl_url}&confirm={confirm_token}"
+                        resp = session.get(confirm_url, headers=headers, timeout=20, allow_redirects=True)
+
+                if resp.status_code == 200 and len(resp.content) > 200:
+                    c_type = resp.headers.get("Content-Type", "").lower()
+                    if resp.content.startswith(b"%PDF") or "pdf" in c_type or "octet-stream" in c_type:
+                        return resp.content, ""
+            except Exception:
+                continue
+
+        return None, "구글 드라이브에서 정답표 PDF를 가져오지 못했습니다. 링크의 공유 권한이 '링크가 있는 모든 사용자(뷰어)'로 설정되어 있는지 확인해 주세요."
+
+    # 2. 일반 HTTP(S) URL 다운로드
+    if clean_url.startswith("http://") or clean_url.startswith("https://"):
+        try:
+            resp = session.get(clean_url, headers=headers, timeout=20, allow_redirects=True)
+            if resp.status_code == 200 and len(resp.content) > 200:
+                return resp.content, ""
+            return None, f"정답표 파일을 다운로드할 수 없습니다. (HTTP 상태 코드: {resp.status_code})"
+        except Exception as ex:
+            return None, f"URL 접근 실패: {str(ex)}"
+
+    return None, "올바른 구글 드라이브 공유 링크 또는 웹 URL 형식이 아닙니다."
+
+def extract_answers_from_drive_or_url(url: str, client=None) -> tuple:
+    """
+    구글 드라이브 링크 또는 웹 URL에서 공식 정답표 PDF를 내려받아 1~45번 정답을 추출합니다.
+    """
+    pdf_bytes, err = download_pdf_from_drive_or_url(url)
+    if not pdf_bytes:
+        return {}, err
+    return extract_answers_from_pdf(pdf_bytes, client=client)
 
 def grade_student_omr(exam_id: str, omr_rows: list) -> dict:
     """
