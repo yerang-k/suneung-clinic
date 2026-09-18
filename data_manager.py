@@ -29,6 +29,10 @@ DEFAULT_CONFIG = {
     "drive_service_account_json": ""
 }
 
+# 국어영역 선택과목 (공통 1~34번 + 선택 35~45번, 시험지/정답표 PDF에는 두 과목이 함께 인쇄됨)
+ELECTIVE_SUBJECTS = ["화법과 작문", "언어와 매체"]
+ELECTIVE_START_DEFAULT = 35
+
 DEFAULT_STUDENTS = [
     {"student_id": "30101", "name": "김수험", "password": "1234"},
     {"student_id": "30102", "name": "이국어", "password": "1234"},
@@ -510,11 +514,11 @@ def get_sorted_exam_keys(exams: dict = None, reverse: bool = True) -> list:
 
     return sorted(list(exams.keys()), key=_sort_key, reverse=reverse)
 
-def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes = None, filename: str = None, pdf_url: str = "", answer_key: dict = None, answer_pdf_url: str = ""):
+def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes = None, filename: str = None, pdf_url: str = "", answer_key: dict = None, answer_pdf_url: str = "", elective_enabled: bool = None, elective_start: int = None, elective_answer_keys: dict = None):
     init_data_dirs()
     exams = get_exams()
     pdf_save_name = ""
-    
+
     if pdf_bytes and filename:
         safe_filename = f"{exam_id}_{filename}"
         pdf_path = os.path.join(EXAMS_DIR, safe_filename)
@@ -537,6 +541,15 @@ def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes =
     else:
         final_answer_key = {}
 
+    # 선택과목(화법과 작문 / 언어와 매체) 설정 — 지정하지 않으면 기존 값을 유지(하위 호환)
+    existing = exams.get(exam_id, {})
+    final_elective_enabled = bool(elective_enabled) if elective_enabled is not None else bool(existing.get("elective_enabled", False))
+    final_elective_start = int(elective_start) if elective_start is not None else int(existing.get("elective_start", ELECTIVE_START_DEFAULT))
+    if elective_answer_keys is not None:
+        final_elective_keys = elective_answer_keys
+    else:
+        final_elective_keys = existing.get("elective_answer_keys", {})
+
     exams[exam_id] = {
         "exam_id": exam_id,
         "title": title,
@@ -545,6 +558,9 @@ def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes =
         "pdf_url": final_url,
         "answer_pdf_url": final_ans_url,
         "answer_key": final_answer_key,
+        "elective_enabled": final_elective_enabled,
+        "elective_start": final_elective_start,
+        "elective_answer_keys": final_elective_keys,
         "created_at": exams[exam_id].get("created_at") if (exam_id in exams and exams[exam_id].get("created_at")) else datetime.now().strftime("%Y-%m-%d %H:%M")
     }
     with open(EXAMS_META_FILE, "w", encoding="utf-8") as f:
@@ -628,6 +644,48 @@ def save_exam_answer_key(exam_id: str, answer_key: dict):
         json.dump(exams, f, ensure_ascii=False, indent=2)
     push_to_google_sheets("save_exam", {"exam": exams[exam_id]})
     return True, f"'{exams[exam_id]['title']}'의 공식 정답표({len(cleaned_key)}문항)가 성공적으로 저장되었습니다!"
+
+def exam_is_elective(exam_id: str) -> bool:
+    """국어영역 선택과목(화법과 작문/언어와 매체)이 구분 설정된 시험지인지 여부"""
+    exams = get_exams()
+    return bool(exams.get(exam_id, {}).get("elective_enabled", False))
+
+def get_exam_elective_start(exam_id: str) -> int:
+    """선택과목이 시작되는 문항 번호 (기본 35번)"""
+    exams = get_exams()
+    try:
+        return int(exams.get(exam_id, {}).get("elective_start", ELECTIVE_START_DEFAULT))
+    except Exception:
+        return ELECTIVE_START_DEFAULT
+
+def get_exam_elective_answer_key(exam_id: str, subject: str) -> dict:
+    """특정 선택과목(예: '화법과 작문')의 정답표({문항번호(int): 정답번호(int)}) 반환"""
+    exams = get_exams()
+    raw = exams.get(exam_id, {}).get("elective_answer_keys", {}).get(subject, {})
+    result = {}
+    for k, v in raw.items():
+        try:
+            result[int(k)] = int(v)
+        except Exception:
+            pass
+    return result
+
+def get_effective_answer_key(exam_id: str, subject: str = None) -> dict:
+    """
+    학생이 실제로 채점받아야 할 정답표를 반환합니다.
+    - 선택과목이 설정되지 않은 시험: 기존 answer_key를 그대로 반환 (하위 호환, 동작 변화 없음)
+    - 선택과목이 설정된 시험: 공통 문항(answer_key, elective_start 미만) + 선택한 과목의
+      elective_start~total_questions 정답을 합쳐서 반환
+    """
+    base = get_exam_answer_key(exam_id)
+    if not exam_is_elective(exam_id):
+        return base
+
+    elective_start = get_exam_elective_start(exam_id)
+    merged = {q: a for q, a in base.items() if q < elective_start}
+    if subject:
+        merged.update(get_exam_elective_answer_key(exam_id, subject))
+    return merged
 
 def parse_answer_string(raw_text: str) -> dict:
     """
@@ -738,6 +796,118 @@ def extract_answers_from_pdf(pdf_bytes: bytes, client=None) -> tuple[dict, str]:
                 return result, f"PDF 텍스트 파싱을 통해 총 {len(result)}개 문항의 정답을 자동 추출했습니다."
 
     return {}, "정답표 PDF에서 정답을 자동으로 판독하지 못했습니다. PDF 내용이 선명한지 확인하시거나 정답 번호를 직접 입력해 주세요."
+
+def extract_elective_answers_from_pdf(pdf_bytes: bytes, client=None, elective_start: int = ELECTIVE_START_DEFAULT, total_questions: int = 45) -> tuple:
+    """
+    선택과목(화법과 작문/언어와 매체)이 함께 인쇄된 국어영역 공식 정답표 PDF에서
+    공통 문항과 두 선택과목의 정답을 각각 구분하여 추출합니다.
+    (일반 extract_answers_from_pdf()는 선택과목 구간의 번호가 두 벌 겹쳐 있어
+    하나의 평면 딕셔너리로는 정확히 판독할 수 없기 때문에 별도로 존재)
+
+    반환: (common_answer_key, {"화법과 작문": {...}, "언어와 매체": {...}}, message)
+    """
+    empty_electives = {s: {} for s in ELECTIVE_SUBJECTS}
+    if not pdf_bytes:
+        return {}, empty_electives, "PDF 파일 데이터가 전달되지 않았습니다."
+
+    extracted_text = ""
+    try:
+        import pypdf
+        reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+        for page in reader.pages:
+            t = page.extract_text()
+            if t:
+                extracted_text += t + "\n"
+    except Exception:
+        extracted_text = ""
+
+    if client is None:
+        try:
+            saved_key, _ = get_effective_api_key()
+            if saved_key:
+                from google import genai
+                client = genai.Client(api_key=saved_key)
+        except Exception:
+            pass
+
+    if client is None:
+        return {}, empty_electives, "Gemini API 키가 설정되어 있지 않아 자동 추출을 진행할 수 없습니다. 사이드바에서 API 키를 등록하거나 정답을 직접 입력해 주세요."
+
+    try:
+        from google.genai import types
+        common_end = elective_start - 1
+        subj_a, subj_b = ELECTIVE_SUBJECTS[0], ELECTIVE_SUBJECTS[1]
+        prompt = f"""
+당신은 대한민국 대학수학능력시험 및 모의평가 국어영역 공식 정답표를 완벽하게 판독하는 전문가입니다.
+
+이 시험의 국어영역은 다음과 같은 구조입니다:
+- 1번~{common_end}번: 모든 학생이 공통으로 응시하는 공통 문항
+- {elective_start}번~{total_questions}번: 선택과목 문항으로, "{subj_a}"와 "{subj_b}" 두 과목의 정답이
+  정답표 안에 각각 별도 지문/구간으로 인쇄되어 있습니다 (즉 {elective_start}번~{total_questions}번 문항 번호가 정답표 안에 두 번 반복됩니다).
+
+제공된 정답표 PDF(또는 텍스트)를 꼼꼼히 분석하여, 아래 3가지를 정확히 구분해서 추출해 주세요:
+1. "common": 1번~{common_end}번 공통 문항 정답
+2. "{subj_a}": {elective_start}번~{total_questions}번 중 "{subj_a}" 선택과목 구간의 정답
+3. "{subj_b}": {elective_start}번~{total_questions}번 중 "{subj_b}" 선택과목 구간의 정답
+
+규칙:
+- 정답은 반드시 1, 2, 3, 4, 5 중 하나의 숫자입니다.
+- 복수정답이 있다면 가장 앞선 번호 하나만 선택하세요.
+- 반드시 아래와 같은 순수 JSON 형식으로만 응답하세요 (마크다운 코드블록 포함 가능):
+{{
+    "common": {{"1": 1, "2": 4, ...}},
+    "{subj_a}": {{"{elective_start}": 2, ..., "{total_questions}": 4}},
+    "{subj_b}": {{"{elective_start}": 1, ..., "{total_questions}": 5}}
+}}
+"""
+        parts = []
+        try:
+            parts.append(types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"))
+        except Exception:
+            pass
+        if extracted_text.strip():
+            parts.append(types.Part.from_text(text=f"[추출된 텍스트 내용]\n{extracted_text[:6000]}"))
+        parts.append(types.Part.from_text(text=prompt))
+
+        res = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=parts,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.0
+            )
+        )
+        raw_text = res.text.strip()
+        cleaned = re.sub(r"^```(?:json)?\s*|```$", "", raw_text, flags=re.MULTILINE)
+        parsed = json.loads(cleaned)
+
+        def _clean(d):
+            out = {}
+            for k, v in (d or {}).items():
+                try:
+                    qk, qv = int(k), int(v)
+                    if 1 <= qv <= 5:
+                        out[qk] = qv
+                except Exception:
+                    pass
+            return out
+
+        common_result = _clean(parsed.get("common"))
+        elective_result = {
+            subj_a: _clean(parsed.get(subj_a)),
+            subj_b: _clean(parsed.get(subj_b)),
+        }
+
+        total_found = len(common_result) + len(elective_result[subj_a]) + len(elective_result[subj_b])
+        if total_found >= 15:
+            return common_result, elective_result, (
+                f"Gemini AI가 공통 {len(common_result)}개, '{subj_a}' {len(elective_result[subj_a])}개, "
+                f"'{subj_b}' {len(elective_result[subj_b])}개 문항의 정답을 인식했습니다. "
+                f"아래 상세 확인 후 저장해 주세요."
+            )
+        return {}, empty_electives, "정답표 PDF에서 선택과목 정답을 충분히 판독하지 못했습니다. PDF 내용이 선명한지 확인하시거나 정답 번호를 직접 입력해 주세요."
+    except Exception as e:
+        return {}, empty_electives, f"AI 정답 추출 중 오류가 발생했습니다: {e}"
 
 def download_pdf_from_drive_or_url(url: str) -> tuple:
     """
@@ -924,7 +1094,7 @@ def extract_answers_from_drive_or_url(url: str, client=None) -> tuple:
         return {}, err
     return extract_answers_from_pdf(pdf_bytes, client=client)
 
-def grade_student_omr(exam_id: str, omr_rows: list) -> dict:
+def grade_student_omr(exam_id: str, omr_rows: list, subject: str = None) -> dict:
     """
     학생의 OMR 마킹 데이터(list of dict with 'q_num', 'selected_opt', 'state')와
     시험지의 공식 정답표를 대조하여 자동 정오 판정 및 메타인지 5대 매트릭스 분류:
@@ -934,8 +1104,11 @@ def grade_student_omr(exam_id: str, omr_rows: list) -> dict:
     4. ❌ 확신 없고 오답 (unsure_wrong)
     5. ⏱️ 시간이 없어서 찍음 (timed_out_guess)
     (5개 카테고리의 문항 수 합 = 전체 문항 수 45문항 100% 일치)
+
+    subject: 선택과목이 구분된 시험지인 경우 학생이 응시한 선택과목
+             ('화법과 작문' 또는 '언어와 매체'). 선택과목이 없는 시험은 무시됨.
     """
-    answer_key = get_exam_answer_key(exam_id)
+    answer_key = get_effective_answer_key(exam_id, subject)
     has_answer_key = bool(answer_key)
     
     graded_items = []

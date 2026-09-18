@@ -10,7 +10,8 @@ from data_manager import (
     call_gemini_safe, save_student_progress, get_student_progress,
     clear_student_progress, get_effective_api_key,
     save_student_api_key, clear_student_api_key,
-    grade_student_omr, get_exam_answer_key, get_sorted_exam_keys, exam_has_own_pdf
+    grade_student_omr, get_exam_answer_key, get_sorted_exam_keys, exam_has_own_pdf,
+    exam_is_elective, ELECTIVE_SUBJECTS
 )
 try:
     from pdf_viewer import render_pdf_viewer, render_csat_text_view
@@ -331,6 +332,7 @@ def save_current_student_progress():
         "exam_info": st.session_state.get("exam_info"),
         "total_time": st.session_state.get("total_time", 80),
         "time_pressure": st.session_state.get("time_pressure", "보통"),
+        "elective_subject": st.session_state.get("elective_subject"),
         "vulnerable_queue": st.session_state.get("vulnerable_queue", []),
         "queue_index": st.session_state.get("queue_index", 0),
         "interview_step": st.session_state.get("interview_step", "CHAT"),
@@ -348,7 +350,7 @@ def load_student_progress_to_session(progress_data: dict):
     if not progress_data:
         return
     keys = [
-        "student_stage", "exam_info", "total_time", "time_pressure",
+        "student_stage", "exam_info", "total_time", "time_pressure", "elective_subject",
         "vulnerable_queue", "queue_index", "interview_step", "chat_history",
         "draft_summary", "current_analysis", "diagnosed_items",
         "active_training_problem", "training_feedback"
@@ -713,6 +715,22 @@ def render_omr_stage():
     cur_exam = exams[selected_exam_id]
     total_q = cur_exam["total_questions"]
 
+    is_elective_exam = exam_is_elective(selected_exam_id)
+    selected_subject = None
+    if is_elective_exam:
+        SUBJECT_PLACEHOLDER = "선택하세요"
+        selected_subject = st.selectbox(
+            "🔀 응시한 선택과목 (35~45번 채점 기준)",
+            options=[SUBJECT_PLACEHOLDER] + ELECTIVE_SUBJECTS,
+            help="이 시험지는 35~45번이 선택과목별로 나뉘어 있어, 실제로 응시한 과목을 선택해야 정확히 채점됩니다."
+        )
+        if selected_subject == SUBJECT_PLACEHOLDER:
+            selected_subject = None
+        else:
+            st.session_state.elective_subject = selected_subject
+        if not selected_subject:
+            st.warning("⚠️ 35~45번을 정확히 채점하려면 먼저 응시한 선택과목을 선택해 주세요.")
+
     st.divider()
     st.subheader(f"📋 {cur_exam['title']} - 전체 문항 풀이 상태 기록")
     st.caption("기본값은 '확신'입니다. 틀렸거나 헷갈렸거나 찍었던 문제만 상태를 변경하세요.")
@@ -941,8 +959,8 @@ def render_omr_stage():
         </div>
         """, unsafe_allow_html=True)
 
-        if st.button("🎯 OMR 제출 및 자동 정오 판정(채점)하기", type="primary", use_container_width=True, key="btn_grade_omr"):
-            res = grade_student_omr(cur_exam["exam_id"], raw_omr_records)
+        if st.button("🎯 OMR 제출 및 자동 정오 판정(채점)하기", type="primary", use_container_width=True, key="btn_grade_omr", disabled=(is_elective_exam and not selected_subject)):
+            res = grade_student_omr(cur_exam["exam_id"], raw_omr_records, subject=selected_subject)
             st.session_state.omr_grading_result = res
             st.rerun()
 
