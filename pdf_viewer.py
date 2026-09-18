@@ -90,56 +90,148 @@ def render_pdf_page_cached(pdf_bytes: bytes, page_index: int, scale: float = 2.0
         pass
     return None
 
-def render_pdf_viewer(base64_pdf: str = None, pdf_url: str = None, pdf_path: str = None, initial_page: int = 1, height: int = 720):
+# KICE 16-page empirical mapping (표준 수능 국어 45문항 배분표)
+KICE_16_PAGE_MAP = {
+    1: 1, 2: 1, 3: 1,
+    4: 2, 5: 2, 6: 2,
+    7: 3, 8: 3, 9: 3,
+    10: 4, 11: 4,
+    12: 5, 13: 5,
+    14: 6, 15: 6,
+    16: 7, 17: 7,
+    18: 8, 19: 8, 20: 8, 21: 8,
+    22: 9, 23: 9, 24: 9,
+    25: 10, 26: 10, 27: 10,
+    28: 11, 29: 11, 30: 11, 31: 11,
+    32: 12, 33: 12, 34: 12,
+    35: 13, 36: 13, 37: 13,
+    38: 14, 39: 14, 40: 14,
+    41: 15, 42: 15,
+    43: 16, 44: 16, 45: 16
+}
+
+@st.cache_data(show_spinner=False, max_entries=50)
+def get_page_for_question_cached(pdf_bytes: bytes, q_num: int, total_pages: int = 16) -> int:
     """
-    초고속 캐싱이 적용된 실물 시험지 뷰어
-    - 구글 드라이브 다운로드 1회 캐시
-    - 페이지 이미지 렌더링 캐시 (0.01초 즉각 전환)
-    - 채팅 입력 시 화면 깜빡임 및 버벅임 완전 제거
+    시험지 PDF에서 q_num번 문항이 위치한 페이지 번호(1-indexed)를 반환합니다.
+    1. PDF 텍스트 레이어가 있는 경우 pypdf로 해당 문항 번호 패턴(예: '45.' 또는 '45번')을 우선 탐색
+    2. 텍스트가 없거나 스캔본인 경우 평가원 표준 16페이지 문항 배분표로 자동 계산
+    """
+    if not q_num or q_num < 1:
+        return 1
+
+    if pdf_bytes:
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+            actual_total = len(reader.pages)
+            if actual_total > 0:
+                total_pages = actual_total
+                std_p = KICE_16_PAGE_MAP.get(q_num, int(round((q_num - 1) / 44 * (total_pages - 1))) + 1)
+                std_p = max(1, min(std_p, total_pages))
+                
+                priorities = [std_p]
+                if std_p - 1 >= 1: priorities.append(std_p - 1)
+                if std_p + 1 <= total_pages: priorities.append(std_p + 1)
+                remaining = [p for p in range(1, total_pages + 1) if p not in priorities]
+                search_order = priorities + remaining
+
+                pat = re.compile(r'(?:^|\s|[^\d])' + str(q_num) + r'\s*[\.번]')
+                for p in search_order:
+                    text = reader.pages[p - 1].extract_text() or ""
+                    if pat.search(text):
+                        return p
+        except Exception:
+            pass
+
+    # 2. 표준 평가원 배분표 비례 스케일링
+    if total_pages == 16:
+        return KICE_16_PAGE_MAP.get(q_num, min(max(1, int(round((q_num - 1) / 44 * 15)) + 1), 16))
+    elif total_pages <= 1:
+        return 1
+    else:
+        std_page = KICE_16_PAGE_MAP.get(q_num, (q_num - 1) / 44 * 15 + 1)
+        scaled = int(round((std_page - 1) / 15 * (total_pages - 1))) + 1
+        return max(1, min(scaled, total_pages))
+
+def render_pdf_viewer(base64_pdf: str = None, pdf_url: str = None, pdf_path: str = None, initial_page: int = 1, q_num: int = None, height: int = 720, viewer_id: str = "default"):
+    """
+    초고속 캐싱 및 문항별 자동 이동이 적용된 실물 시험지 뷰어
+    - 특정 문항(예: 45번) 선택 시 해당 시험지 페이지로 0.01초 자동 점프
+    - 상단 문항 바로가기 드롭다운(1~45번) 지원
+    - 구글 드라이브 다운로드 1회 메모리 캐시 및 페이지 이미지 렌더링 캐시
     """
     pdf_bytes = get_pdf_bytes_cached(pdf_url=pdf_url, pdf_path=pdf_path, base64_pdf=base64_pdf)
 
     if pdf_bytes:
         total_pages = get_pdf_total_pages_cached(pdf_bytes)
         if total_pages > 0:
-            page_state_key = f"pdf_cur_page_{initial_page}_{total_pages}"
-            if page_state_key not in st.session_state:
+            page_state_key = f"pdf_cur_page_{viewer_id}"
+            last_q_key = f"pdf_last_q_{viewer_id}"
+
+            # ⭐️ q_num이 지정되었거나 변경되었을 때 해당 문항의 페이지로 즉시 자동 점프
+            if q_num is not None:
+                if st.session_state.get(last_q_key) != q_num:
+                    st.session_state[last_q_key] = q_num
+                    target_page = get_page_for_question_cached(pdf_bytes, q_num, total_pages)
+                    st.session_state[page_state_key] = target_page
+            elif page_state_key not in st.session_state:
                 st.session_state[page_state_key] = max(1, min(initial_page, total_pages))
 
-            cur_page = st.session_state[page_state_key]
+            cur_page = st.session_state.get(page_state_key, max(1, min(initial_page, total_pages)))
+            cur_page = max(1, min(cur_page, total_pages))
+            st.session_state[page_state_key] = cur_page
 
-            # 상단 네비게이션 바
-            col_n1, col_n2, col_n3, col_n4 = st.columns([1.1, 1.8, 1.1, 1.1])
+            # 상단 네비게이션 바 (이전 | 페이지선택 | 🎯 문항이동 | 다음 | 원문열기)
+            col_n1, col_n2, col_n3, col_n4, col_n5 = st.columns([1, 1.6, 1.7, 1, 1])
             with col_n1:
-                if st.button("◀ 이전", key=f"btn_prev_{page_state_key}", disabled=(cur_page <= 1), use_container_width=True):
+                if st.button("◀ 이전", key=f"btn_prev_{viewer_id}_{cur_page}", disabled=(cur_page <= 1), use_container_width=True):
                     st.session_state[page_state_key] = max(1, cur_page - 1)
                     st.rerun()
             with col_n2:
-                # ⭐️ selectbox의 key에 cur_page를 포함하여 이전/다음 버튼 클릭 시 위젯 캐시 충돌을 원천 방지
                 sel_p = st.selectbox(
                     "페이지",
                     options=list(range(1, total_pages + 1)),
                     index=cur_page - 1,
                     format_func=lambda x: f"📄 {x} / {total_pages} 페이지",
                     label_visibility="collapsed",
-                    key=f"sel_p_{page_state_key}_{cur_page}"
+                    key=f"sel_p_{viewer_id}_{cur_page}"
                 )
                 if sel_p != cur_page:
                     st.session_state[page_state_key] = sel_p
                     st.rerun()
             with col_n3:
-                if st.button("다음 ▶", key=f"btn_next_{page_state_key}", disabled=(cur_page >= total_pages), use_container_width=True):
-                    st.session_state[page_state_key] = min(total_pages, cur_page + 1)
+                # 🎯 문항 바로가기 드롭다운
+                default_lbl = f"🎯 {q_num}번 문항 이동" if q_num else "🎯 문항 이동..."
+                q_options = [default_lbl] + [f"{i}번 문항" for i in range(1, 46) if not (q_num and i == q_num)]
+                sel_q = st.selectbox(
+                    "문항 이동",
+                    options=q_options,
+                    label_visibility="collapsed",
+                    key=f"sel_q_{viewer_id}_{cur_page}"
+                )
+                if sel_q != default_lbl:
+                    chosen_q = int(re.search(r'\d+', sel_q).group())
+                    jump_p = get_page_for_question_cached(pdf_bytes, chosen_q, total_pages)
+                    st.session_state[page_state_key] = jump_p
+                    st.session_state[last_q_key] = chosen_q
                     st.rerun()
             with col_n4:
+                if st.button("다음 ▶", key=f"btn_next_{viewer_id}_{cur_page}", disabled=(cur_page >= total_pages), use_container_width=True):
+                    st.session_state[page_state_key] = min(total_pages, cur_page + 1)
+                    st.rerun()
+            with col_n5:
                 if pdf_url and pdf_url.startswith("http"):
                     st.link_button("↗ 원문", pdf_url, use_container_width=True)
 
             # 캐시된 초고속 페이지 이미지 출력 (독립 고정 스크롤 박스 적용)
             img_bytes = render_pdf_page_cached(pdf_bytes, cur_page - 1, scale=2.0)
             if img_bytes:
+                caption_parts = [f"📄 {cur_page} / {total_pages} 페이지 (마우스 휠로 위아래 스크롤)"]
+                if q_num:
+                    caption_parts.insert(0, f"🎯 **{q_num}번 문항** 위치")
                 with st.container(height=height):
-                    st.image(img_bytes, use_container_width=True, caption=f"📄 {cur_page} / {total_pages} 페이지 (마우스 휠로 위아래 스크롤)")
+                    st.image(img_bytes, use_container_width=True, caption=" | ".join(caption_parts))
             else:
                 st.error("페이지 렌더링 실패")
             return
@@ -147,7 +239,13 @@ def render_pdf_viewer(base64_pdf: str = None, pdf_url: str = None, pdf_path: str
     # 구글 드라이브 링크가 있는데 직접 다운로드가 안 된 경우: 구글 공식 preview iframe으로 폴백
     if pdf_url and pdf_url.startswith("http"):
         file_id = extract_drive_file_id(pdf_url)
+        target_p = initial_page
+        if q_num:
+            target_p = KICE_16_PAGE_MAP.get(q_num, 16 if q_num == 45 else 1)
         preview_url = f"https://drive.google.com/file/d/{file_id}/preview" if file_id else pdf_url
+        if target_p > 1:
+            preview_url += f"#page={target_p}"
+
         st.markdown(f"""
         <div style="margin-bottom: 8px; display: flex; justify-content: flex-end;">
             <a href="{pdf_url}" target="_blank" style="text-decoration: none;">

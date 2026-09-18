@@ -721,6 +721,18 @@ def render_omr_stage():
         st.session_state.omr_df = pd.DataFrame(init_rows)
         st.session_state.omr_editor_nonce = st.session_state.get("omr_editor_nonce", 0) + 1
 
+    # 0. 시험지 원문 PDF 열람 (문항별 자동 이동 지원)
+    pdf_path_omr, pdf_b64_omr, pdf_url_omr = get_exam_pdf_source(selected_exam_id)
+    if pdf_path_omr or pdf_b64_omr or pdf_url_omr:
+        with st.expander("📄 [시험지 원문 열기] 실물 시험지 PDF를 보면서 마킹하기 (문항별 이동 지원)", expanded=False):
+            render_pdf_viewer(
+                base64_pdf=pdf_b64_omr,
+                pdf_url=pdf_url_omr,
+                pdf_path=pdf_path_omr,
+                height=560,
+                viewer_id=f"omr_{selected_exam_id}"
+            )
+
     # 1. 빠른 번호 일괄 지정 폼 (체크박스 자동 토글)
     with st.expander("⚡ 번호 직접 입력으로 빠르게 체크하기 (선택사항)", expanded=False):
         with st.form("quick_omr_form"):
@@ -830,7 +842,8 @@ def render_omr_stage():
         height=380
     )
 
-    # 선지 체크박스 단일 선택(라디오 동작) 자동 보정
+    # ⭐️ 1) 선지 체크박스 단일 선택(라디오 동작) 자동 보정: 1번에서 3번으로 바꾸면 1번 자동 해제!
+    needs_rerun = False
     for idx in range(len(edited_df)):
         row = edited_df.iloc[idx]
         checked = [c for c in opt_chars if row.get(c, False)]
@@ -839,11 +852,31 @@ def render_omr_stage():
             newly = [c for c in checked if prev_row is not None and not prev_row.get(c, False)]
             keep = newly[-1] if newly else checked[-1]
             for c in opt_chars:
-                edited_df.iat[idx, edited_df.columns.get_loc(c)] = (c == keep)
-        elif len(checked) == 0:
-            edited_df.iat[idx, edited_df.columns.get_loc("①")] = True
+                val = (c == keep)
+                if edited_df.iat[idx, edited_df.columns.get_loc(c)] != val:
+                    edited_df.iat[idx, edited_df.columns.get_loc(c)] = val
+                    needs_rerun = True
+
+    # ⭐️ 2) 문항 풀이 상태 체크박스("🔴 오답", "🟡 확신 없음", "⏱️ 찍음") 단일 선택(상호 배타) 자동 보정
+    status_cols = ["🔴 오답", "🟡 확신 없음", "⏱️ 찍음"]
+    for idx in range(len(edited_df)):
+        row = edited_df.iloc[idx]
+        checked_st = [s for s in status_cols if row.get(s, False)]
+        if len(checked_st) > 1:
+            prev_row = st.session_state.omr_df.iloc[idx] if idx < len(st.session_state.omr_df) else None
+            newly_st = [s for s in checked_st if prev_row is not None and not prev_row.get(s, False)]
+            keep_st = newly_st[-1] if newly_st else checked_st[-1]
+            for s in status_cols:
+                val = (s == keep_st)
+                if edited_df.iat[idx, edited_df.columns.get_loc(s)] != val:
+                    edited_df.iat[idx, edited_df.columns.get_loc(s)] = val
+                    needs_rerun = True
 
     st.session_state.omr_df = edited_df
+
+    if needs_rerun:
+        st.session_state.omr_editor_nonce = st.session_state.get("omr_editor_nonce", 0) + 1
+        st.rerun()
 
     # 상태 판정 함수
     def resolve_status(row):
@@ -1247,7 +1280,14 @@ def render_interview_stage(client):
         
         with tab_pdf:
             if pdf_path or pdf_b64 or pdf_url:
-                render_pdf_viewer(base64_pdf=pdf_b64, pdf_url=pdf_url, pdf_path=pdf_path, initial_page=1, height=VIEWER_HEIGHT)
+                render_pdf_viewer(
+                    base64_pdf=pdf_b64, 
+                    pdf_url=pdf_url, 
+                    pdf_path=pdf_path, 
+                    q_num=q_num, 
+                    height=VIEWER_HEIGHT, 
+                    viewer_id=f"interview_{exam_info['exam_id']}"
+                )
             else:
                 st.info(f"선생님이 아직 '{exam_info['title']}'의 원문 PDF를 등록하지 않았습니다. [문항 텍스트 집중 보기] 탭을 확인해 주세요.")
                 with st.container(height=VIEWER_HEIGHT):
