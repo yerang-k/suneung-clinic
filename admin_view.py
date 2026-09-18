@@ -3,7 +3,7 @@ import pandas as pd
 from data_manager import (
     get_students, add_student, delete_student, save_students,
     get_admin_config, save_admin_config,
-    get_exams, save_exam, get_exam_pdf_base64,
+    get_exams, save_exam, get_exam_pdf_base64, get_sorted_exam_keys,
     attach_pdf_to_exam, get_exam_pdf_source, delete_exam,
     get_exam_answer_key, save_exam_answer_key, parse_answer_string, extract_answers_from_pdf,
     get_submissions, get_student_vulnerability_profile, get_student_submissions,
@@ -110,8 +110,8 @@ def render_admin_dashboard(client=None):
 
         exams = get_exams()
         NEW_EXAM_OPT = "➕ [새로운 시험지 추가 등록하기]"
-        # ⭐️ 시험지 목록을 이름(제목) 순으로 깔끔하게 정렬
-        sorted_exam_keys = sorted(list(exams.keys()), key=lambda x: str(exams[x].get("title", "")))
+        # ⭐️ 시험지 목록을 최신순(최근 연도 및 시험 시기 우선)으로 정렬
+        sorted_exam_keys = get_sorted_exam_keys(exams, reverse=True)
         exam_options = sorted_exam_keys + [NEW_EXAM_OPT]
 
         if not exams:

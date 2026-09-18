@@ -474,6 +474,41 @@ def get_exams():
     except Exception:
         return DEFAULT_EXAMS
 
+def get_sorted_exam_keys(exams: dict = None, reverse: bool = True) -> list:
+    """
+    시험지 딕셔너리를 입력받아 연도 및 시행 시기(수능, 10월, 9월, 7월, 6월 등)를 기반으로
+    최신순(reverse=True) 또는 과거순(reverse=False)으로 정렬된 exam_id 리스트를 반환합니다.
+    """
+    if exams is None:
+        exams = get_exams()
+    if not exams:
+        return []
+
+    def _sort_key(eid):
+        info = exams.get(eid, {})
+        title = str(info.get("title", ""))
+        eid_str = str(info.get("exam_id", eid))
+        
+        # 1. 4자리 연도 추출 (예: 2026)
+        year_match = re.search(r'(20\d\d)', title) or re.search(r'(20\d\d)', eid_str)
+        year = int(year_match.group(1)) if year_match else 0
+        
+        # 2. 시험 시행 시기 가중치 (수능 11.5 > 10월 10 > 9월 9 > 7월 7 > 6월 6 > 4월 4 > 3월 3)
+        month_val = 0.0
+        if any(w in title for w in ["수능", "대학수학능력시험"]) or "suneung" in eid_str.lower():
+            month_val = 11.5
+        else:
+            m_match = re.search(r'(\d{1,2})월', title) or re.search(r'_(\d{2})_', eid_str)
+            if m_match:
+                try:
+                    month_val = float(m_match.group(1))
+                except Exception:
+                    month_val = 0.0
+                    
+        return (year, month_val, title)
+
+    return sorted(list(exams.keys()), key=_sort_key, reverse=reverse)
+
 def save_exam(exam_id: str, title: str, total_questions: int, pdf_bytes: bytes = None, filename: str = None, pdf_url: str = "", answer_key: dict = None):
     init_data_dirs()
     exams = get_exams()
