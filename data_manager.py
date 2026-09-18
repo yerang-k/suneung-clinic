@@ -25,7 +25,8 @@ DEFAULT_CONFIG = {
     "admin_password": "teacher1234",
     "gemini_api_key": "",
     "google_drive_folder_url": "https://drive.google.com/drive/folders/sample-kice-past-exams-archive",
-    "gas_api_url": ""
+    "gas_api_url": "",
+    "drive_api_key": ""
 }
 
 DEFAULT_STUDENTS = [
@@ -642,7 +643,7 @@ def extract_answers_from_pdf(pdf_bytes: bytes, client=None) -> tuple[dict, str]:
     """
     평가원 공식 정답표 PDF 파일에서 1~45번 정답을 자동으로 추출하여 {문항번호: 정답번호} 딕셔너리로 반환합니다.
     1. pypdf를 통해 텍스트를 우선 추출
-    2. Gemini Multimodal AI (gemini-2.0-flash)를 활용해 PDF 표 및 텍스트에서 1~45번 정답을 정밀 판독
+    2. Gemini Multimodal AI (gemini-2.5-flash)를 활용해 PDF 표 및 텍스트에서 1~45번 정답을 정밀 판독
     3. AI 부재 또는 오류 시 정규식 패턴 파서로 자동 폴백
     """
     if not pdf_bytes:
@@ -698,7 +699,7 @@ def extract_answers_from_pdf(pdf_bytes: bytes, client=None) -> tuple[dict, str]:
             parts.append(types.Part.from_text(text=prompt))
 
             res = client.models.generate_content(
-                model='gemini-2.0-flash',
+                model='gemini-2.5-flash',
                 contents=parts,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -804,6 +805,84 @@ def download_pdf_from_drive_or_url(url: str) -> tuple:
             return None, f"URL 접근 실패: {str(ex)}"
 
     return None, "올바른 구글 드라이브 공유 링크 또는 웹 URL 형식이 아닙니다."
+
+def extract_drive_folder_id(url: str) -> str:
+    """구글 드라이브 폴더 공유 링크에서 folder_id를 추출합니다."""
+    if not url:
+        return ""
+    m = re.search(r"drive\.google\.com/drive/(?:u/\d+/)?folders/([a-zA-Z0-9_-]+)", str(url))
+    if m:
+        return m.group(1)
+    m2 = re.search(r"[?&]id=([a-zA-Z0-9_-]+)", str(url))
+    if m2:
+        return m2.group(1)
+    return ""
+
+def list_drive_folder_pdfs(folder_url: str, api_key: str, max_files: int = 300, max_depth: int = 4) -> tuple:
+    """
+    '링크가 있는 모든 사용자'로 공개된 구글 드라이브 폴더 안의 PDF 파일 목록을
+    구글 드라이브 API v3(API 키만 사용, OAuth 불필요)로 조회합니다.
+    하위 폴더(연도/월별 정리 등)까지 재귀적으로 탐색합니다.
+    반환: (files, error_message) — files는 [{"id", "name", "path", "link"}, ...]
+    """
+    folder_url = (folder_url or "").strip()
+    api_key = (api_key or "").strip()
+    if not folder_url:
+        return [], "구글 드라이브 마스터 폴더 링크가 설정되어 있지 않습니다. [마스터 연동 및 시스템 설정] 탭에서 먼저 등록해 주세요."
+    if not api_key:
+        return [], "구글 드라이브 API 키가 설정되어 있지 않습니다. [마스터 연동 및 시스템 설정] 탭에서 등록해 주세요."
+
+    root_id = extract_drive_folder_id(folder_url)
+    if not root_id:
+        return [], "구글 드라이브 폴더 링크에서 폴더 ID를 인식하지 못했습니다."
+
+    files = []
+    queue = [(root_id, "", 0)]
+    seen_folders = {root_id}
+    try:
+        while queue and len(files) < max_files:
+            cur_id, cur_path, depth = queue.pop(0)
+            page_token = None
+            while True:
+                params = {
+                    "q": f"'{cur_id}' in parents and trashed = false",
+                    "key": api_key,
+                    "fields": "nextPageToken, files(id, name, mimeType)",
+                    "pageSize": 100,
+                    "supportsAllDrives": "true",
+                    "includeItemsFromAllDrives": "true"
+                }
+                if page_token:
+                    params["pageToken"] = page_token
+                resp = requests.get("https://www.googleapis.com/drive/v3/files", params=params, timeout=15)
+                if resp.status_code != 200:
+                    err_msg = resp.json().get("error", {}).get("message", resp.text[:200]) if resp.text else f"HTTP {resp.status_code}"
+                    return files, f"구글 드라이브 목록 조회 실패: {err_msg}\n(API 키가 유효한지, 'Google Drive API'가 활성화되어 있는지, 폴더가 '링크가 있는 모든 사용자'로 공유되어 있는지 확인해 주세요.)"
+                data = resp.json()
+                for item in data.get("files", []):
+                    mime = item.get("mimeType", "")
+                    if mime == "application/vnd.google-apps.folder":
+                        if depth < max_depth and item["id"] not in seen_folders:
+                            seen_folders.add(item["id"])
+                            queue.append((item["id"], f"{cur_path}{item['name']}/", depth + 1))
+                    elif mime == "application/pdf":
+                        files.append({
+                            "id": item["id"],
+                            "name": item["name"],
+                            "path": cur_path,
+                            "link": f"https://drive.google.com/file/d/{item['id']}/view?usp=sharing"
+                        })
+                page_token = data.get("nextPageToken")
+                if not page_token or len(files) >= max_files:
+                    break
+    except Exception as e:
+        return files, f"구글 드라이브 목록 조회 중 오류: {e}"
+
+    if not files:
+        return [], "이 폴더(및 하위 폴더)에서 PDF 파일을 찾지 못했습니다. 폴더 공유 권한과 폴더 안에 PDF가 있는지 확인해 주세요."
+
+    files.sort(key=lambda f: (f["path"], f["name"]))
+    return files, ""
 
 def extract_answers_from_drive_or_url(url: str, client=None) -> tuple:
     """
@@ -1178,11 +1257,12 @@ def call_gemini_safe(client, contents, config=None):
         raise ValueError("Gemini API 클라이언트가 초기화되지 않았습니다. 사이드바에 API 키를 입력해 주세요.")
 
     # 1. 안정성이 입증된 Google 주력 텍스트 생성 모델만 순서대로 시도
-    # (gemini-2.0-flash -> gemini-1.5-flash -> gemini-1.5-pro)
+    # gemini-1.5 계열은 구글이 퇴역시켜 전부 404가 나던 상태였음.
+    # "-latest" 별칭은 구글이 내부적으로 최신 세대 모델로 자동 갱신하므로 특정 버전 하드코딩보다 오래 간다.
     candidate_models = [
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro"
+        "gemini-2.5-flash",
+        "gemini-flash-latest",
+        "gemini-2.5-pro"
     ]
 
     attempted_log = []

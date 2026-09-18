@@ -446,8 +446,8 @@ def render_stage_navigation_bar():
 # ==========================================
 def render_student_login():
     st.markdown("""
-    <div style="text-align: center; margin-top: 2rem; margin-bottom: 2rem;">
-        <h1 style="color: #0E0E29; font-weight: 800; letter-spacing: -0.5px;">🎯 수능 국어 사고 복원 클리닉</h1>
+    <div style="text-align: center; margin-top: 0.5rem; margin-bottom: 1.25rem;">
+        <h1 style="color: var(--color-text); font-weight: 800; letter-spacing: -0.5px;">🎯 수능 국어 사고 복원 클리닉</h1>
     </div>
     """, unsafe_allow_html=True)
 

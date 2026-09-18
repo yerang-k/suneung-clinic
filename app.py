@@ -41,21 +41,73 @@ st.markdown("""
 <style>
 /* ===================================================
    Lattice Design System (Modern & Clean B2B SaaS)
+   디자인 토큰: 색상/여백/모서리 반경/폰트 크기를 한 곳에서 관리.
+   앱 전역의 커스텀 HTML(inline style)에서도 var(--token)으로 동일하게 참조 가능.
    =================================================== */
+:root {
+    /* 색상 */
+    --color-bg: #FFFFFF;
+    --color-surface: #FFFFFF;
+    --color-surface-muted: #F6F6F5;
+    --color-surface-accent: #E6F3F2;
+    --color-surface-accent-soft: #F0F7F6;
+    --color-border: #EBEBE7;
+    --color-border-strong: #D1D1C8;
+    --color-border-accent: #B8E1BE;
+    --color-text: #0E0E29;
+    --color-text-muted: #59594A;
+    --color-text-subtle: #767567;
+    --color-primary: #046663;
+    --color-primary-hover: #035350;
+    --color-accent: #16B8A2;
+    /* 여백 */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    /* 모서리 반경 */
+    --radius-sm: 8px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    /* 그림자 */
+    --shadow-sm: 0 2px 6px -2px rgba(14, 14, 41, 0.05);
+    --shadow-md: 0 4px 12px -2px rgba(14, 14, 41, 0.05);
+    /* 제목 위계(페이지 제목 > 섹션 제목 > 카드 제목 > 보조 라벨) */
+    --font-h1: 1.6rem;
+    --font-h2: 1.3rem;
+    --font-h3: 1.1rem;
+    --font-h4: 1rem;
+    --font-h5: 0.92rem;
+}
 
 /* 0. 타이포그래피 및 기본 폰트 설정 */
 html, body, [class*="css"] {
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-    color: #404035;
-    background-color: #FFFFFF;
+    color: var(--color-text-muted);
+    background-color: var(--color-bg);
 }
 
-/* 제목 (Ebony: #0E0E29, Bold, Tight) */
+/* 제목 위계: 페이지 제목(h1) > 섹션 제목(h2~h3) > 카드/보조 제목(h4~h6)
+   모든 레벨이 동일한 굵기/크기로 보이던 문제를 해결하기 위해 레벨별 크기를 명확히 분리 */
 h1, h2, h3, h4, h5, h6 {
-    color: #0E0E29 !important;
+    color: var(--color-text) !important;
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif !important;
     font-weight: 700 !important;
     letter-spacing: -0.025em !important;
+}
+h1 { font-size: var(--font-h1) !important; }
+h2 { font-size: var(--font-h2) !important; }
+h3 { font-size: var(--font-h3) !important; }
+h4 { font-size: var(--font-h4) !important; }
+h5, h6 {
+    font-size: var(--font-h5) !important;
+    font-weight: 600 !important;
+    color: var(--color-text-muted) !important;
+}
+/* 좁은 화면에서 페이지 제목이 2줄로 줄바꿈되며 화면 상단을 과도하게 차지하지 않도록 */
+@media (max-width: 640px) {
+    h1 { font-size: 1.35rem !important; }
+    h2 { font-size: 1.15rem !important; }
 }
 
 /* 본문 줄간격 및 가독성 */
@@ -142,61 +194,61 @@ div[data-testid="collapsedControl"] button {
 
 /* 4. 사이드바(Surface Gray 배경 & 웜그레이 테두리) */
 section[data-testid="stSidebar"] {
-    background-color: #F6F6F5 !important;
-    border-right: 1px solid #EBEBE7 !important;
+    background-color: var(--color-surface-muted) !important;
+    border-right: 1px solid var(--color-border) !important;
 }
 
 /* 5. 카드 및 패널 컴포넌트 (Soft Shadow, 14px 곡선, 매우 연한 테두리) */
 div[data-testid="stVerticalBlockBorderWrapper"] {
-    background-color: #FFFFFF !important;
-    border: 1px solid #EBEBE7 !important;
-    border-radius: 14px !important;
-    box-shadow: 0 4px 12px -2px rgba(14, 14, 41, 0.05) !important;
+    background-color: var(--color-surface) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-lg) !important;
+    box-shadow: var(--shadow-md) !important;
     transition: box-shadow 0.2s ease-in-out !important;
 }
 
 /* 6. 버튼 스타일링 */
-/* Primary Button: Deep Mosque (#046663), White Text, 8px Radius */
+/* Primary Button: Deep Mosque, White Text, 8px Radius */
 button[kind="primary"] {
-    background-color: #046663 !important;
+    background-color: var(--color-primary) !important;
     color: #FFFFFF !important;
     border: none !important;
-    border-radius: 8px !important;
+    border-radius: var(--radius-sm) !important;
     font-weight: 600 !important;
     padding: 0.5rem 1rem !important;
     box-shadow: 0 2px 5px rgba(4, 102, 99, 0.2) !important;
     transition: all 0.15s ease-in-out !important;
 }
 button[kind="primary"]:hover {
-    background-color: #035350 !important;
+    background-color: var(--color-primary-hover) !important;
     box-shadow: 0 4px 10px rgba(4, 102, 99, 0.3) !important;
     transform: translateY(-1px) !important;
 }
 
 /* Secondary Button: White Background, Ebony Text, Warm Gray Border */
 button[kind="secondary"], button:not([kind="primary"]):not([data-testid="stChatInputSubmitButton"]) {
-    background-color: #FFFFFF !important;
-    color: #0E0E29 !important;
-    border: 1px solid #D1D1C8 !important;
-    border-radius: 8px !important;
+    background-color: var(--color-surface) !important;
+    color: var(--color-text) !important;
+    border: 1px solid var(--color-border-strong) !important;
+    border-radius: var(--radius-sm) !important;
     font-weight: 500 !important;
     transition: all 0.15s ease-in-out !important;
 }
 button[kind="secondary"]:hover, button:not([kind="primary"]):not([data-testid="stChatInputSubmitButton"]):hover {
-    background-color: #F6F6F5 !important;
-    border-color: #16B8A2 !important;
-    color: #046663 !important;
+    background-color: var(--color-surface-muted) !important;
+    border-color: var(--color-accent) !important;
+    color: var(--color-primary) !important;
 }
 
-/* 7. 입력창 및 셀렉트박스 (Focus 시 Mountain Meadow #16B8A2 아웃라인) */
+/* 7. 입력창 및 셀렉트박스 (Focus 시 Mountain Meadow 아웃라인) */
 input[type="text"], input[type="password"], textarea:not([data-testid="stChatInputTextArea"]), select, .stSelectbox [data-baseweb="select"] {
-    border: 1px solid #D1D1C8 !important;
-    border-radius: 8px !important;
-    color: #0E0E29 !important;
-    background-color: #FFFFFF !important;
+    border: 1px solid var(--color-border-strong) !important;
+    border-radius: var(--radius-sm) !important;
+    color: var(--color-text) !important;
+    background-color: var(--color-surface) !important;
 }
 input[type="text"]:focus, input[type="password"]:focus, textarea:not([data-testid="stChatInputTextArea"]):focus {
-    border-color: #16B8A2 !important;
+    border-color: var(--color-accent) !important;
     box-shadow: 0 0 0 2px rgba(22, 184, 162, 0.2) !important;
     outline: none !important;
 }
@@ -292,24 +344,34 @@ button[data-testid="stChatInputSubmitButton"] svg {
 /* 8. 탭 (Tabs) - Lattice 청록색 언더라인 */
 .stTabs [data-baseweb="tab-list"] {
     gap: 12px !important;
-    border-bottom: 1.5px solid #EBEBE7 !important;
+    border-bottom: 1.5px solid var(--color-border) !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
 }
 .stTabs [data-baseweb="tab"] {
-    color: #59594A !important;
+    color: var(--color-text-muted) !important;
     font-weight: 500 !important;
     border-radius: 6px 6px 0 0 !important;
     padding: 8px 16px !important;
+    white-space: nowrap !important;
 }
 .stTabs [aria-selected="true"] {
-    color: #046663 !important;
+    color: var(--color-primary) !important;
     font-weight: 700 !important;
-    border-bottom: 2.5px solid #046663 !important;
+    border-bottom: 2.5px solid var(--color-primary) !important;
+}
+/* 좁은 화면에서는 탭 라벨을 촘촘히 줄여 스크롤 없이 더 많은 탭이 보이도록 */
+@media (max-width: 640px) {
+    .stTabs [data-baseweb="tab"] {
+        padding: 8px 10px !important;
+        font-size: 0.88rem !important;
+    }
 }
 
 /* 9. 알림 배너 (Info, Success 등 부드러운 라운딩 및 테두리) */
 div[data-testid="stAlert"] {
-    border-radius: 10px !important;
-    border: 1px solid #EBEBE7 !important;
+    border-radius: var(--radius-md) !important;
+    border: 1px solid var(--color-border) !important;
 }
 
 /* 메인 컨테이너 상단 여백 최적화 */

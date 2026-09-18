@@ -13,5 +13,10 @@
     "student_id": "30103",
     "name": "박수능",
     "password": "1234"
+  },
+  {
+    "student_id": "31101",
+    "name": "김예랑",
+    "password": "1234"
   }
 ]

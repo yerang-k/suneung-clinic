@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 from data_manager import (
@@ -8,13 +9,52 @@ from data_manager import (
     get_exam_answer_key, save_exam_answer_key, parse_answer_string, extract_answers_from_pdf,
     download_pdf_from_drive_or_url, extract_answers_from_drive_or_url,
     get_submissions, get_student_vulnerability_profile, get_student_submissions,
-    sync_from_google_sheets, push_all_to_google_sheets, get_last_sync_time, get_gas_api_url
+    sync_from_google_sheets, push_all_to_google_sheets, get_last_sync_time, get_gas_api_url,
+    list_drive_folder_pdfs
 )
 try:
     from pdf_viewer import render_pdf_viewer
 except Exception:
     def render_pdf_viewer(*args, **kwargs):
         st.info("📄 실물 시험지는 상단 원문 링크를 통해 새 창에서 확인하실 수 있습니다.")
+
+def render_drive_folder_pdf_picker(target_session_key: str, picker_id: str, master_folder_url: str, drive_api_key: str):
+    """
+    구글 드라이브 마스터 폴더 안의 PDF 목록을 불러와 선택하면,
+    target_session_key(해당 링크 입력창의 key)에 선택한 파일의 공유 링크를 자동으로 채워 넣습니다.
+    매번 드라이브에서 링크를 복사해 붙여넣는 수고를 없애기 위한 기능입니다.
+    """
+    cache_key = f"_drive_pdf_cache_{picker_id}"
+
+    col_load, col_refresh = st.columns([3, 1])
+    with col_load:
+        do_load = st.button("📂 마스터 폴더에서 PDF 목록 불러오기", key=f"btn_load_{picker_id}", use_container_width=True)
+    with col_refresh:
+        do_refresh = st.button("🔄 새로고침", key=f"btn_refresh_{picker_id}", use_container_width=True)
+
+    if do_load or do_refresh:
+        if not master_folder_url or not drive_api_key:
+            st.warning("먼저 [⚙️ 마스터 연동 및 시스템 설정] 탭에서 '구글 드라이브 마스터 폴더 URL'과 '구글 드라이브 API 키'를 등록해 주세요.")
+        else:
+            with st.spinner("구글 드라이브 폴더(하위 폴더 포함)를 탐색하는 중..."):
+                files, err = list_drive_folder_pdfs(master_folder_url, drive_api_key)
+                st.session_state[cache_key] = files
+                if err and not files:
+                    st.error(err)
+                elif err:
+                    st.warning(err)
+                elif files:
+                    st.success(f"PDF {len(files)}개를 찾았습니다. 아래에서 선택해 주세요.")
+
+    files = st.session_state.get(cache_key)
+    if files:
+        options = [f"{f['path']}{f['name']}" for f in files]
+        sel = st.selectbox(f"불러온 PDF 중 선택 ({len(files)}개)", options=options, key=f"sel_{picker_id}")
+        if st.button("✅ 이 파일로 연결하기", key=f"btn_pick_{picker_id}", type="primary", use_container_width=True):
+            chosen = files[options.index(sel)]
+            st.session_state[target_session_key] = chosen["link"]
+            st.toast(f"'{chosen['name']}' 파일 링크가 채워졌습니다. 아래 저장 버튼을 눌러 반영하세요.", icon="✅")
+            st.rerun()
 
 def render_admin_dashboard(client=None):
     col_t1, col_t2 = st.columns([3, 1.2])
@@ -113,6 +153,10 @@ def render_admin_dashboard(client=None):
         st.subheader("📄 시험지 등록 및 원문 PDF 관리")
         st.caption("시험지를 선택하여 기본 정보, 원문 PDF(파일/구글 드라이브 링크), 공식 정답표를 한 화면에서 한 번에 설정하고 저장합니다.")
 
+        tab2_cfg = get_admin_config()
+        master_folder_url = tab2_cfg.get("google_drive_folder_url", "")
+        drive_api_key = tab2_cfg.get("drive_api_key", "")
+
         exams = get_exams()
         NEW_EXAM_OPT = "➕ [새로운 시험지 추가 등록하기]"
         # ⭐️ 시험지 목록을 최신순(최근 연도 및 시험 시기 우선)으로 정렬
@@ -158,6 +202,9 @@ def render_admin_dashboard(client=None):
                     st.caption("💡 구글 드라이브 링크를 연결해두면 웹 배포가 재시작되어도 파일이 영구 유지됩니다.")
                     new_pdf_url = st.text_input("구글 드라이브 PDF 공유 링크", placeholder="https://drive.google.com/file/d/.../view?usp=sharing", key="new_pdf_url_input")
 
+                with st.expander("**방법 C: 마스터 폴더에서 바로 선택 (링크 복사·붙여넣기 없이)**"):
+                    render_drive_folder_pdf_picker("new_pdf_url_input", "new_exam_main", master_folder_url, drive_api_key)
+
                 st.markdown("##### 🎯 공식 정답표 (선택 사항)")
                 st.caption("평가원 정답표 PDF(파일 업로드 또는 구글 드라이브 링크)를 제공하면 AI가 1~45번 정답을 자동으로 판독해 채워줍니다.")
 
@@ -172,6 +219,9 @@ def render_admin_dashboard(client=None):
                         st.markdown("**방법 B: 구글 드라이브 정답표 PDF 공유 링크 (강력 추천)**")
                         st.caption("💡 구글 드라이브 링크를 연결해두면 배포 서버가 재시작되어도 정답표가 영구 보존됩니다.")
                         new_ans_pdf_url = st.text_input("정답표 구글 드라이브 링크", placeholder="https://drive.google.com/file/d/.../view?usp=sharing", key="new_ans_pdf_url_input")
+
+                    with st.expander("**방법 C: 마스터 폴더에서 바로 선택**"):
+                        render_drive_folder_pdf_picker("new_ans_pdf_url_input", "new_exam_ans", master_folder_url, drive_api_key)
 
                     col_abtn1, col_abtn2 = st.columns([2, 1])
                     with col_abtn1:
@@ -294,6 +344,9 @@ def render_admin_dashboard(client=None):
                     st.caption("💡 웹 서버가 재시작되어도 링크가 영구 보존됩니다.")
                     edit_pdf_url = st.text_input("구글 드라이브 PDF 공유 링크", value=cur_exam.get("pdf_url", ""), placeholder="https://drive.google.com/file/d/.../view?usp=sharing", key=f"pdf_url_{selected_eid}")
 
+                with st.expander("**방법 C: 마스터 폴더에서 바로 선택 (링크 복사·붙여넣기 없이)**"):
+                    render_drive_folder_pdf_picker(f"pdf_url_{selected_eid}", f"exist_main_{selected_eid}", master_folder_url, drive_api_key)
+
                 st.divider()
 
                 # 4. 공식 정답표 (Answer Key) 설정
@@ -322,6 +375,9 @@ def render_admin_dashboard(client=None):
                             placeholder="https://drive.google.com/file/d/.../view?usp=sharing",
                             key=f"ans_pdf_url_{selected_eid}"
                         )
+
+                    with st.expander("**방법 C: 마스터 폴더에서 바로 선택**"):
+                        render_drive_folder_pdf_picker(f"ans_pdf_url_{selected_eid}", f"exist_ans_{selected_eid}", master_folder_url, drive_api_key)
 
                     col_bbtn1, col_bbtn2 = st.columns([2, 1])
                     with col_bbtn1:
@@ -472,6 +528,7 @@ def render_admin_dashboard(client=None):
         # 2. 마스터 설정 폼
         master_url = cfg.get("google_drive_folder_url", "")
         master_api_key = cfg.get("gemini_api_key", "")
+        master_drive_api_key = cfg.get("drive_api_key", "")
 
         with st.form("drive_master_form"):
             st.markdown("##### 🔑 교사용 공용 Gemini API Key")
@@ -500,6 +557,13 @@ def render_admin_dashboard(client=None):
                 value=master_url,
                 placeholder="https://drive.google.com/drive/folders/..."
             )
+            st.caption("💡 이 폴더가 '링크가 있는 모든 사용자'로 공유되어 있고 아래 '구글 드라이브 API 키'도 등록하면, [📄 시험지 및 PDF 업로드] 탭에서 링크를 복사·붙여넣기 하지 않고 폴더 안 PDF 목록에서 바로 선택할 수 있습니다.")
+            new_drive_api_key = st.text_input(
+                "구글 드라이브 API 키 (마스터 폴더에서 바로 선택하기 기능용)",
+                value=master_drive_api_key,
+                type="password",
+                placeholder="AIza로 시작하는 API 키"
+            )
 
             st.divider()
             st.markdown("##### 🔒 관리자 마스터 비밀번호 변경")
@@ -514,6 +578,7 @@ def render_admin_dashboard(client=None):
                 cfg["gemini_api_key"] = new_api_key.strip()
                 cfg["google_drive_folder_url"] = new_master_url.strip()
                 cfg["gas_api_url"] = new_gas_url.strip()
+                cfg["drive_api_key"] = new_drive_api_key.strip()
                 if admin_pw_change.strip():
                     cfg["admin_password"] = admin_pw_change.strip()
                 save_admin_config(cfg)
@@ -552,6 +617,23 @@ def render_admin_dashboard(client=None):
                     st.code(code_content, language="javascript")
             except Exception:
                 pass
+
+        st.divider()
+
+        # 3-1. 구글 드라이브 API 키 발급 1분 가이드 Expander
+        with st.expander("📖 구글 드라이브 API 키 발급 방법 (마스터 폴더에서 바로 선택하기용, 클릭하여 열기)"):
+            st.markdown("""
+            ### 🛠️ 1분 만에 구글 드라이브 API 키 발급받는 법
+            이 키가 있으면 [📄 시험지 및 PDF 업로드] 탭에서 매번 드라이브 링크를 복사해 붙여넣지 않고, 마스터 폴더 안 PDF 목록에서 바로 골라 연결할 수 있습니다. (구글 로그인 동의 절차 없이 키 하나만 발급하면 됩니다.)
+
+            1. [Google Cloud Console API 키 발급 페이지](https://console.cloud.google.com/apis/credentials)에 접속합니다. (처음이면 아무 프로젝트나 새로 만들라는 안내가 뜨는데, 이름은 자유롭게 정해도 됩니다.)
+            2. 상단 **[+ 사용자 인증 정보 만들기] ➔ [API 키]**를 클릭하면 키가 바로 발급됩니다.
+            3. 발급된 키를 복사하여 위 [구글 드라이브 API 키] 칸에 붙여넣고 저장합니다.
+            4. 좌측 메뉴에서 **[API 및 서비스] ➔ [라이브러리]**로 이동해 **"Google Drive API"**를 검색하고 **[사용 설정]**을 눌러 켭니다. (이 단계를 빠뜨리면 목록 조회가 실패합니다.)
+            5. (선택) 발급한 키를 눌러 **API 제한사항**을 "Google Drive API"로만 제한해 두면 더 안전합니다.
+
+            > **주의**: 이 기능은 마스터 폴더가 **'링크가 있는 모든 사용자'로 공유**되어 있어야 동작합니다. 비공개 폴더는 이 방식으로 접근할 수 없습니다.
+            """)
 
         st.divider()
         with st.expander("💡 AI가 자동으로 탐색·매핑하는 6대 취약점별 기출 문항 풀 (인덱스 확인)"):

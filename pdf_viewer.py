@@ -286,12 +286,12 @@ def render_csat_text_view(question_item: dict, my_pick: int, status_tag: str):
     options_symbol = {1: "①", 2: "②", 3: "③", 4: "④", 5: "⑤"}
     
     st.markdown(f"""
-    <div style="background-color: #ffffff; padding: 1.2rem; border-radius: 8px; border: 1px solid #e2e8f0; font-family: 'Nanum Myeongjo', 'Batang', serif;">
-        <div style="border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: bold; font-size: 1.1rem; color: #0f172a;">[ {question_item.get('q_num', '')} 번 ] {question_item.get('question', '')}</span>
-            <span style="font-size: 0.85rem; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 4px;">{status_tag}</span>
+    <div style="background-color: var(--color-surface, #ffffff); padding: 1.2rem; border-radius: var(--radius-sm, 8px); border: 1px solid var(--color-border, #EBEBE7); font-family: 'Nanum Myeongjo', 'Batang', serif;">
+        <div style="border-bottom: 2px solid var(--color-text, #0E0E29); padding-bottom: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: bold; font-size: 1.1rem; color: var(--color-text, #0E0E29);">[ {question_item.get('q_num', '')} 번 ] {question_item.get('question', '')}</span>
+            <span style="font-size: 0.85rem; color: var(--color-text-muted, #59594A); background: var(--color-surface-muted, #F6F6F5); padding: 2px 8px; border-radius: 4px;">{status_tag}</span>
         </div>
-        <div style="background-color: #f8fafc; padding: 14px; border: 1px solid #cbd5e1; border-radius: 6px; line-height: 1.75; font-size: 0.95rem; margin-bottom: 16px; color: #1e293b; white-space: pre-wrap;">
+        <div style="background-color: var(--color-surface-muted, #F6F6F5); padding: 14px; border: 1px solid var(--color-border-strong, #D1D1C8); border-radius: 6px; line-height: 1.75; font-size: 0.95rem; margin-bottom: 16px; color: var(--color-text, #0E0E29); white-space: pre-wrap;">
 {question_item.get('passage', '지문 텍스트가 등록되지 않았습니다.')}
         </div>
     </div>
