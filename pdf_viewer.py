@@ -4,7 +4,12 @@ import re
 import io
 import requests
 import streamlit as st
-import pypdfium2 as pdfium
+
+# Streamlit Cloud 등 리눅스 컨테이너 환경에서 pypdfium2 로딩 실패(version.json KeyError 등) 방지
+try:
+    import pypdfium2 as pdfium
+except Exception:
+    pdfium = None
 
 def extract_drive_file_id(url: str) -> str:
     """구글 드라이브 URL에서 file_id 추출"""
@@ -63,12 +68,20 @@ def get_pdf_bytes_cached(pdf_url: str = None, pdf_path: str = None, base64_pdf: 
 def get_pdf_total_pages_cached(pdf_bytes: bytes) -> int:
     """PDF 전체 페이지 수 조회 (캐시됨)"""
     if not pdf_bytes:
-        return 0
+        return 16
+    if pdfium is not None:
+        try:
+            doc = pdfium.PdfDocument(pdf_bytes)
+            return len(doc)
+        except Exception:
+            pass
+    # Fallback to pure-python pypdf
     try:
-        doc = pdfium.PdfDocument(pdf_bytes)
-        return len(doc)
+        import pypdf
+        reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+        return len(reader.pages)
     except Exception:
-        return 0
+        return 16
 
 @st.cache_data(show_spinner=False, max_entries=80)
 def render_pdf_page_cached(pdf_bytes: bytes, page_index: int, scale: float = 2.0) -> bytes:
@@ -76,7 +89,7 @@ def render_pdf_page_cached(pdf_bytes: bytes, page_index: int, scale: float = 2.0
     지정된 페이지를 고화질 JPEG 이미지 바이트로 렌더링하여 캐시합니다.
     한 번 렌더링된 페이지는 0.01초 만에 즉각 화면에 표시됩니다.
     """
-    if not pdf_bytes:
+    if not pdf_bytes or pdfium is None:
         return None
     try:
         doc = pdfium.PdfDocument(pdf_bytes)
@@ -232,9 +245,7 @@ def render_pdf_viewer(base64_pdf: str = None, pdf_url: str = None, pdf_path: str
                     caption_parts.insert(0, f"🎯 **{q_num}번 문항** 위치")
                 with st.container(height=height):
                     st.image(img_bytes, use_container_width=True, caption=" | ".join(caption_parts))
-            else:
-                st.error("페이지 렌더링 실패")
-            return
+                return
 
     # 구글 드라이브 링크가 있는데 직접 다운로드가 안 된 경우: 구글 공식 preview iframe으로 폴백
     if pdf_url and pdf_url.startswith("http"):

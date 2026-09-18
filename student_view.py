@@ -12,7 +12,13 @@ from data_manager import (
     save_student_api_key, clear_student_api_key,
     grade_student_omr, get_exam_answer_key, get_sorted_exam_keys
 )
-from pdf_viewer import render_pdf_viewer, render_csat_text_view
+try:
+    from pdf_viewer import render_pdf_viewer, render_csat_text_view
+except Exception:
+    def render_pdf_viewer(*args, **kwargs):
+        st.info("📄 실물 시험지는 상단 원문 링크를 통해 새 창에서 확인하실 수 있습니다.")
+    def render_csat_text_view(*args, **kwargs):
+        pass
 from prescription_engine import (
     get_prescription_problems, evaluate_student_defense,
     find_indexed_problem, get_all_indexed_problems

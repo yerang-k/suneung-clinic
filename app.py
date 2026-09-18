@@ -1,5 +1,21 @@
 import os
 import streamlit as st
+
+# ==========================================
+# 1. 앱 기본 설정 (Streamlit 최우선 실행 필수)
+# ==========================================
+st.set_page_config(
+    page_title="수능 국어 사고 복원 클리닉",
+    page_icon="🎯",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': "### 수능 국어 메타인지 사고 복원 클리닉 2.0\n학생의 오답 경로를 정밀 진단하고 평가원 함정 방어 원칙을 수립합니다."
+    }
+)
+
 from google import genai
 
 from data_manager import (
@@ -18,20 +34,8 @@ from student_view import (
 )
 
 # ==========================================
-# 1. 앱 기본 설정
+# 2. 스타일 및 CSS 설정
 # ==========================================
-st.set_page_config(
-    page_title="수능 국어 사고 복원 클리닉",
-    page_icon="🎯",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': None,
-        'Report a bug': None,
-        'About': None
-    }
-)
-
 # ⭐️ 전역 스타일: 상단 GitHub 아이콘, Edit(연필) 아이콘, 햄버거 메뉴, 툴바 완전 제거 & 깔끔한 여백
 st.markdown("""
 <style>

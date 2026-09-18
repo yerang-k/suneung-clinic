@@ -10,7 +10,11 @@ from data_manager import (
     get_submissions, get_student_vulnerability_profile, get_student_submissions,
     sync_from_google_sheets, push_all_to_google_sheets, get_last_sync_time, get_gas_api_url
 )
-from pdf_viewer import render_pdf_viewer
+try:
+    from pdf_viewer import render_pdf_viewer
+except Exception:
+    def render_pdf_viewer(*args, **kwargs):
+        st.info("📄 실물 시험지는 상단 원문 링크를 통해 새 창에서 확인하실 수 있습니다.")
 
 def render_admin_dashboard(client=None):
     col_t1, col_t2 = st.columns([3, 1.2])
