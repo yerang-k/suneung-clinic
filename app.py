@@ -39,39 +39,43 @@ from student_view import (
 # ⭐️ 전역 스타일: 상단 GitHub 아이콘, Edit(연필) 아이콘, 햄버거 메뉴, 툴바 완전 제거 & 깔끔한 여백
 st.markdown("""
 <style>
+@import url('https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
+
 /* ===================================================
-   Lattice Design System (Modern & Clean B2B SaaS)
+   Paper Clinic Editorial Design System
+   (Stitch 디자인 시스템 "Paper Clinic Editorial"을 적용한 디자인 토큰)
    디자인 토큰: 색상/여백/모서리 반경/폰트 크기를 한 곳에서 관리.
    앱 전역의 커스텀 HTML(inline style)에서도 var(--token)으로 동일하게 참조 가능.
    =================================================== */
 :root {
-    /* 색상 */
-    --color-bg: #FFFFFF;
+    /* 색상: 따뜻한 아이보리 캔버스 + 딥 차콜 잉크 + 세이지/테라코타 포인트 */
+    --color-bg: #FAF8F5;
     --color-surface: #FFFFFF;
-    --color-surface-muted: #F6F6F5;
-    --color-surface-accent: #E6F3F2;
-    --color-surface-accent-soft: #F0F7F6;
-    --color-border: #EBEBE7;
-    --color-border-strong: #D1D1C8;
-    --color-border-accent: #B8E1BE;
-    --color-text: #0E0E29;
-    --color-text-muted: #59594A;
-    --color-text-subtle: #767567;
-    --color-primary: #046663;
-    --color-primary-hover: #035350;
-    --color-accent: #16B8A2;
+    --color-surface-muted: #F5F2EB;
+    --color-surface-accent: #E3EAE2;
+    --color-surface-accent-soft: #F1F5F0;
+    --color-border: #E6E1DA;
+    --color-border-strong: #CDC5BD;
+    --color-border-accent: #C7D6CB;
+    --color-text: #2B2927;
+    --color-text-muted: #4B4640;
+    --color-text-subtle: #7C766F;
+    --color-primary: #2B2927;
+    --color-primary-hover: #3A3530;
+    --color-accent: #5E7966;
+    --color-danger: #C86446;
     /* 여백 */
     --space-xs: 4px;
     --space-sm: 8px;
     --space-md: 16px;
     --space-lg: 24px;
     /* 모서리 반경 */
-    --radius-sm: 8px;
-    --radius-md: 10px;
-    --radius-lg: 14px;
-    /* 그림자 */
-    --shadow-sm: 0 2px 6px -2px rgba(14, 14, 41, 0.05);
-    --shadow-md: 0 4px 12px -2px rgba(14, 14, 41, 0.05);
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    /* 그림자 (은은한 웜톤 그림자, 네온/과한 광택 지양) */
+    --shadow-sm: 0 1px 3px rgba(43, 41, 39, 0.04), 0 1px 2px rgba(43, 41, 39, 0.02);
+    --shadow-md: 0 4px 12px rgba(43, 41, 39, 0.06), 0 1px 3px rgba(43, 41, 39, 0.04);
     /* 제목 위계(페이지 제목 > 섹션 제목 > 카드 제목 > 보조 라벨) */
     --font-h1: 1.6rem;
     --font-h2: 1.3rem;
@@ -80,9 +84,9 @@ st.markdown("""
     --font-h5: 0.92rem;
 }
 
-/* 0. 타이포그래피 및 기본 폰트 설정 */
+/* 0. 타이포그래피 및 기본 폰트 설정: 한글은 Pretendard, 숫자/영문은 Inter */
 html, body, [class*="css"] {
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
     color: var(--color-text-muted);
     background-color: var(--color-bg);
 }
@@ -91,9 +95,9 @@ html, body, [class*="css"] {
    모든 레벨이 동일한 굵기/크기로 보이던 문제를 해결하기 위해 레벨별 크기를 명확히 분리 */
 h1, h2, h3, h4, h5, h6 {
     color: var(--color-text) !important;
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif !important;
-    font-weight: 700 !important;
-    letter-spacing: -0.025em !important;
+    font-family: 'Pretendard Variable', Pretendard, 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.015em !important;
 }
 h1 { font-size: var(--font-h1) !important; }
 h2 { font-size: var(--font-h2) !important; }
@@ -143,7 +147,7 @@ div[class*="stAppToolbar"] {
     visibility: visible !important;
 }
 
-/* 3. 좌측 사이드바 펼치기 토글 버튼(>>) - Lattice Teal 스타일 */
+/* 3. 좌측 사이드바 펼치기 토글 버튼(>>) */
 [data-testid="stSidebarCollapsedControl"],
 [data-testid="collapsedControl"],
 header [data-testid="stSidebarCollapsedControl"],
@@ -167,20 +171,20 @@ div[data-testid="collapsedControl"] button {
     opacity: 1 !important;
     pointer-events: auto !important;
     cursor: pointer !important;
-    background-color: #FFFFFF !important;
-    border: 1.5px solid #046663 !important;
-    border-radius: 8px !important;
-    color: #046663 !important;
+    background-color: var(--color-surface) !important;
+    border: 1.5px solid var(--color-primary) !important;
+    border-radius: var(--radius-sm) !important;
+    color: var(--color-primary) !important;
     padding: 4px 10px !important;
-    box-shadow: 0 2px 6px rgba(4, 102, 99, 0.15) !important;
+    box-shadow: 0 2px 6px rgba(43, 41, 39, 0.15) !important;
     transition: all 0.15s ease-in-out !important;
 }
 
 [data-testid="stSidebarCollapsedControl"] button:hover,
 [data-testid="collapsedControl"] button:hover {
-    background-color: #F0F7F6 !important;
-    border-color: #16B8A2 !important;
-    color: #16B8A2 !important;
+    background-color: var(--color-surface-accent-soft) !important;
+    border-color: var(--color-accent) !important;
+    color: var(--color-accent) !important;
     transform: scale(1.03);
 }
 
@@ -189,7 +193,7 @@ div[data-testid="collapsedControl"] button {
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
-    color: #046663 !important;
+    color: var(--color-primary) !important;
 }
 
 /* 4. 사이드바(Surface Gray 배경 & 웜그레이 테두리) */
@@ -208,24 +212,25 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 }
 
 /* 6. 버튼 스타일링 */
-/* Primary Button: Deep Mosque, White Text, 8px Radius */
+/* Primary Button: Deep Warm Charcoal, White Text */
 button[kind="primary"] {
     background-color: var(--color-primary) !important;
-    color: #FFFFFF !important;
-    border: none !important;
+    color: #FDFBF7 !important;
+    border: 1px solid var(--color-primary) !important;
     border-radius: var(--radius-sm) !important;
     font-weight: 600 !important;
     padding: 0.5rem 1rem !important;
-    box-shadow: 0 2px 5px rgba(4, 102, 99, 0.2) !important;
+    box-shadow: 0 2px 5px rgba(43, 41, 39, 0.15) !important;
     transition: all 0.15s ease-in-out !important;
 }
 button[kind="primary"]:hover {
     background-color: var(--color-primary-hover) !important;
-    box-shadow: 0 4px 10px rgba(4, 102, 99, 0.3) !important;
+    border-color: var(--color-primary-hover) !important;
+    box-shadow: 0 4px 10px rgba(43, 41, 39, 0.2) !important;
     transform: translateY(-1px) !important;
 }
 
-/* Secondary Button: White Background, Ebony Text, Warm Gray Border */
+/* Secondary Button: White Background, Charcoal Ink Text, Warm Stone Border */
 button[kind="secondary"], button:not([kind="primary"]):not([data-testid="stChatInputSubmitButton"]) {
     background-color: var(--color-surface) !important;
     color: var(--color-text) !important;
@@ -240,7 +245,7 @@ button[kind="secondary"]:hover, button:not([kind="primary"]):not([data-testid="s
     color: var(--color-primary) !important;
 }
 
-/* 7. 입력창 및 셀렉트박스 (Focus 시 Mountain Meadow 아웃라인) */
+/* 7. 입력창 및 셀렉트박스 (Focus 시 딥 차콜 아웃라인) */
 input[type="text"], input[type="password"], textarea:not([data-testid="stChatInputTextArea"]), select, .stSelectbox [data-baseweb="select"] {
     border: 1px solid var(--color-border-strong) !important;
     border-radius: var(--radius-sm) !important;
@@ -248,22 +253,22 @@ input[type="text"], input[type="password"], textarea:not([data-testid="stChatInp
     background-color: var(--color-surface) !important;
 }
 input[type="text"]:focus, input[type="password"]:focus, textarea:not([data-testid="stChatInputTextArea"]):focus {
-    border-color: var(--color-accent) !important;
-    box-shadow: 0 0 0 2px rgba(22, 184, 162, 0.2) !important;
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 0 1px var(--color-primary) !important;
     outline: none !important;
 }
 
 /* 7-1. st.chat_input: 1줄 가로 정렬 강제 & 채팅창 길이 자동 조절 & 화살표 인라인 배치 */
 [data-testid="stChatInput"] {
-    background-color: #FFFFFF !important;
-    border: 1px solid #D1D1C8 !important;
-    border-radius: 10px !important;
+    background-color: var(--color-surface) !important;
+    border: 1px solid var(--color-border-strong) !important;
+    border-radius: var(--radius-md) !important;
     padding: 3px 6px !important;
-    box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.05) !important;
+    box-shadow: var(--shadow-sm) !important;
 }
 [data-testid="stChatInput"]:focus-within {
-    border-color: #16B8A2 !important;
-    box-shadow: 0 0 0 2px rgba(22, 184, 162, 0.2) !important;
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 0 1px var(--color-primary) !important;
 }
 [data-testid="stChatInput"] > div,
 [data-testid="stChatInput"] form,
@@ -296,7 +301,7 @@ input[type="text"]:focus, input[type="password"]:focus, textarea:not([data-testi
     padding: 8px 10px !important;
     font-size: 0.93rem !important;
     line-height: 1.4 !important;
-    color: #0E0E29 !important;
+    color: var(--color-text) !important;
     resize: none !important;
     width: 100% !important;
 }
@@ -313,9 +318,9 @@ button[data-testid="stChatInputSubmitButton"] {
     height: 34px !important;
     min-width: 34px !important;
     min-height: 34px !important;
-    border-radius: 8px !important;
-    background-color: #046663 !important;
-    color: #FFFFFF !important;
+    border-radius: var(--radius-sm) !important;
+    background-color: var(--color-primary) !important;
+    color: #FDFBF7 !important;
     border: none !important;
     display: inline-flex !important;
     align-items: center !important;
@@ -323,25 +328,25 @@ button[data-testid="stChatInputSubmitButton"] {
     padding: 0 !important;
     margin: 0 !important;
     cursor: pointer !important;
-    box-shadow: 0 1px 3px rgba(4, 102, 99, 0.2) !important;
+    box-shadow: 0 1px 3px rgba(43, 41, 39, 0.2) !important;
     transition: all 0.15s ease-in-out !important;
 }
 [data-testid="stChatInput"] button:hover,
 button[data-testid="stChatInputSubmitButton"]:hover {
-    background-color: #035350 !important;
-    color: #FFFFFF !important;
+    background-color: var(--color-primary-hover) !important;
+    color: #FDFBF7 !important;
     border: none !important;
     transform: scale(1.05) !important;
 }
 [data-testid="stChatInput"] button svg,
 button[data-testid="stChatInputSubmitButton"] svg {
-    fill: #FFFFFF !important;
-    color: #FFFFFF !important;
+    fill: #FDFBF7 !important;
+    color: #FDFBF7 !important;
     width: 18px !important;
     height: 18px !important;
 }
 
-/* 8. 탭 (Tabs) - Lattice 청록색 언더라인 */
+/* 8. 탭 (Tabs) - 딥 차콜 언더라인 */
 .stTabs [data-baseweb="tab-list"] {
     gap: 12px !important;
     border-bottom: 1.5px solid var(--color-border) !important;

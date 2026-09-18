@@ -296,12 +296,12 @@ def render_kakaotalk_chat(chat_history):
         if role == "assistant":
             item_html = (
                 '<div style="display: flex; align-items: flex-start; gap: 8px; justify-content: flex-start; margin-right: 15%;">'
-                '<div style="width: 34px; height: 34px; border-radius: 50%; background: #E6F3F2; border: 1px solid #B8E1BE; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0; box-shadow: 0 1px 2px rgba(14, 14, 41, 0.06);">'
+                '<div style="width: 34px; height: 34px; border-radius: 50%; background: #E3EAE2; border: 1px solid #C7D6CB; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0; box-shadow: 0 1px 2px rgba(14, 14, 41, 0.06);">'
                 '🎯'
                 '</div>'
                 '<div style="display: flex; flex-direction: column; gap: 3px; max-width: 88%;">'
-                '<span style="font-size: 0.78rem; color: #59594A; font-weight: 600; margin-left: 2px;">AI 사고 복원 코치</span>'
-                f'<div style="background: #ffffff; color: #0E0E29; padding: 10px 14px; border-radius: 4px 12px 12px 12px; border: 1px solid #EBEBE7; font-size: 0.95rem; line-height: 1.55; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.05); word-break: break-word;">{safe_text}</div>'
+                '<span style="font-size: 0.78rem; color: #4B4640; font-weight: 600; margin-left: 2px;">AI 사고 복원 코치</span>'
+                f'<div style="background: #ffffff; color: #2B2927; padding: 10px 14px; border-radius: 4px 12px 12px 12px; border: 1px solid #E6E1DA; font-size: 0.95rem; line-height: 1.55; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.05); word-break: break-word;">{safe_text}</div>'
                 '</div>'
                 '</div>'
             )
@@ -377,15 +377,15 @@ def render_student_welcome_header():
     }.get(stage, "진단 진행 중")
 
     st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #F0F7F6 0%, #E6F3F2 100%); border: 1px solid #B8E1BE; border-radius: 14px; padding: 1.15rem 1.5rem; margin-bottom: 1.2rem; box-shadow: 0 4px 12px -2px rgba(14, 14, 41, 0.05);">
+    <div style="background: linear-gradient(135deg, #F1F5F0 0%, #E3EAE2 100%); border: 1px solid #C7D6CB; border-radius: 14px; padding: 1.15rem 1.5rem; margin-bottom: 1.2rem; box-shadow: 0 4px 12px -2px rgba(14, 14, 41, 0.05);">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
             <div>
-                <h2 style="color: #0E0E29; margin: 0; font-size: 1.55rem; font-weight: 800; letter-spacing: -0.5px;">
-                    👋 반가워요, <span style="color: #046663;">{student['name']}</span> ({student['student_id']}) 학생!
+                <h2 style="color: #2B2927; margin: 0; font-size: 1.55rem; font-weight: 800; letter-spacing: -0.5px;">
+                    👋 반가워요, <span style="color: #2B2927;">{student['name']}</span> ({student['student_id']}) 학생!
                 </h2>
             </div>
-            <div style="text-align: right; background: #ffffff; padding: 8px 16px; border-radius: 8px; border: 1px solid #B8E1BE; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-                <b style="font-size: 1.02rem; color: #046663;">🎯 {stage_desc}</b>
+            <div style="text-align: right; background: #ffffff; padding: 8px 16px; border-radius: 8px; border: 1px solid #C7D6CB; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                <b style="font-size: 1.02rem; color: #2B2927;">🎯 {stage_desc}</b>
             </div>
         </div>
     </div>
@@ -580,12 +580,12 @@ def render_student_mypage():
         with col_top:
             st.markdown("##### 📌 집중 극복 대상 TOP 3")
             for rank, (tag, count) in enumerate(profile["top_vulnerabilities"], start=1):
-                badge_color = "#ef4444" if rank == 1 else ("#f97316" if rank == 2 else "#eab308")
+                badge_color = "#C86446" if rank == 1 else ("#B4552E" if rank == 2 else "#97731F")
                 ratio = round(count / max(1, profile['total_questions']) * 100, 1)
                 st.markdown(f"""
-                <div style="background-color: #F6F6F5; border-left: 4px solid {badge_color}; border-top: 1px solid #EBEBE7; border-right: 1px solid #EBEBE7; border-bottom: 1px solid #EBEBE7; padding: 12px 14px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.05);">
-                    <div style="font-weight: 700; color: #0E0E29; font-size: 1.05rem;">{rank}위: {tag}</div>
-                    <div style="color: #59594A; font-size: 0.9rem; margin-top: 4px;">총 <b>{count}문항</b>에서 감지 (전체 분석의 {ratio}%)</div>
+                <div style="background-color: #F5F2EB; border-left: 4px solid {badge_color}; border-top: 1px solid #E6E1DA; border-right: 1px solid #E6E1DA; border-bottom: 1px solid #E6E1DA; padding: 12px 14px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.05);">
+                    <div style="font-weight: 700; color: #2B2927; font-size: 1.05rem;">{rank}위: {tag}</div>
+                    <div style="color: #4B4640; font-size: 0.9rem; margin-top: 4px;">총 <b>{count}문항</b>에서 감지 (전체 분석의 {ratio}%)</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -596,7 +596,7 @@ def render_student_mypage():
                     {"사고 오류 유형": k, "감지 횟수": v}
                     for k, v in profile["tag_counts"].items()
                 ]).sort_values(by="감지 횟수", ascending=True)
-                st.bar_chart(df_tags.set_index("사고 오류 유형"), horizontal=True, color="#046663")
+                st.bar_chart(df_tags.set_index("사고 오류 유형"), horizontal=True, color="#2B2927")
 
     with tab_rules:
         st.subheader("🎯 수능장 지참용 나만의 행동 원칙 (Action Rules)")
@@ -607,7 +607,7 @@ def render_student_mypage():
                     col_r1, col_r2 = st.columns([3.2, 1])
                     with col_r1:
                         st.markdown(f"**📌 [{r['exam_title']}] {r['q_num']}번 문항** `오류: {r['error_tag']}`")
-                        st.markdown(f"💡 **나의 행동 원칙:** <span style='color: #046663; font-weight: 700; font-size: 1.05rem;'>\"{r['action_rule']}\"</span>", unsafe_allow_html=True)
+                        st.markdown(f"💡 **나의 행동 원칙:** <span style='color: #2B2927; font-weight: 700; font-size: 1.05rem;'>\"{r['action_rule']}\"</span>", unsafe_allow_html=True)
                     with col_r2:
                         st.caption(f"📅 진단일: {r['timestamp']}")
         else:
@@ -683,8 +683,8 @@ def render_omr_stage():
         st.info(f"💡 **누적 취약점 경보**: 지난 진단에서 {top_tags_text} 패턴이 자주 감지되었습니다. 이번 시험지에서도 비슷한 사고 왜곡이 발생하지 않았는지 주의 깊게 복기해 보세요!")
 
     st.markdown("""
-    <div style="background-color: #F6F6F5; border-left: 4px solid #046663; border-top: 1px solid #EBEBE7; border-right: 1px solid #EBEBE7; border-bottom: 1px solid #EBEBE7; padding: 12px 16px; border-radius: 8px; margin-bottom: 1.2rem; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-        <b style="color: #0E0E29; font-size: 1.05rem;">📝 1단계: 시험지 선택 및 OMR 풀이 상태 마킹</b>
+    <div style="background-color: #F5F2EB; border-left: 4px solid #2B2927; border-top: 1px solid #E6E1DA; border-right: 1px solid #E6E1DA; border-bottom: 1px solid #E6E1DA; padding: 12px 16px; border-radius: 8px; margin-bottom: 1.2rem; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+        <b style="color: #2B2927; font-size: 1.05rem;">📝 1단계: 시험지 선택 및 OMR 풀이 상태 마킹</b>
     </div>
     """, unsafe_allow_html=True)
 
@@ -830,10 +830,10 @@ def render_omr_stage():
     # 상단 2단 그룹 헤더: [문항 풀이 상태] vs [내가 체크한 답]
     st.markdown("""
     <div style="display: flex; gap: 8px; margin-top: 8px; margin-bottom: 8px; font-weight: 700; font-size: 0.93rem;">
-        <div style="flex: 4; background-color: #F6F6F5; color: #404035; padding: 9px 12px; border-radius: 8px; text-align: center; border: 1px solid #EBEBE7;">
+        <div style="flex: 4; background-color: #F5F2EB; color: #4B4640; padding: 9px 12px; border-radius: 8px; text-align: center; border: 1px solid #E6E1DA;">
             📋 문항 풀이 상태
         </div>
-        <div style="flex: 5; background-color: #E6F3F2; color: #046663; padding: 9px 12px; border-radius: 8px; text-align: center; border: 1px solid #B8E1BE;">
+        <div style="flex: 5; background-color: #E3EAE2; color: #2B2927; padding: 9px 12px; border-radius: 8px; text-align: center; border: 1px solid #C7D6CB;">
             ✏️ 내가 체크한 답 (실제 선택한 선지)
         </div>
     </div>
@@ -931,11 +931,11 @@ def render_omr_stage():
     if not grading_res:
         # 아직 채점하기 전 상태: [OMR 제출 및 자동 정오 판정하기] 버튼 노출
         st.markdown("""
-        <div style="background-color: #F6F6F5; border: 1px solid #EBEBE7; border-left: 4px solid #046663; padding: 14px 18px; border-radius: 8px; margin: 16px 0; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-            <span style="font-size: 1.05rem; font-weight: 700; color: #0E0E29;">
+        <div style="background-color: #F5F2EB; border: 1px solid #E6E1DA; border-left: 4px solid #2B2927; padding: 14px 18px; border-radius: 8px; margin: 16px 0; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+            <span style="font-size: 1.05rem; font-weight: 700; color: #2B2927;">
                 💡 OMR 마킹을 마쳤다면 아래 버튼을 눌러 공식 정답표와 자동 대조(채점)를 진행하세요.
             </span>
-            <div style="margin-top: 6px; font-size: 0.92rem; color: #59594A; line-height: 1.55;">
+            <div style="margin-top: 6px; font-size: 0.92rem; color: #4B4640; line-height: 1.55;">
                 앱이 실제 정답과 대조하여 마킹 실수나 착각을 바로잡고, <b>'확신 오답'</b>, <b>'찍어서 맞힌 문항'</b> 등 메타인지 매트릭스를 정밀 분석합니다.
             </div>
         </div>
@@ -956,17 +956,17 @@ def render_omr_stage():
         with st.container(border=True):
             st.markdown(f"### 📊 자동 채점 결과 및 메타인지 정오 분석")
             st.markdown(f"""
-            <div style="display: flex; justify-content: space-between; align-items: center; background: #F0F7F6; border: 1px solid #B8E1BE; border-radius: 12px; padding: 12px 18px; margin-bottom: 14px; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+            <div style="display: flex; justify-content: space-between; align-items: center; background: #F1F5F0; border: 1px solid #C7D6CB; border-radius: 12px; padding: 12px 18px; margin-bottom: 14px; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
                 <div>
-                    <span style="font-size: 1.25rem; font-weight: 800; color: #046663;">
+                    <span style="font-size: 1.25rem; font-weight: 800; color: #2B2927;">
                         🎯 정답률: {acc_pct}% ({correct_n} / {total_q} 문항)
                     </span>
-                    <span style="margin-left: 14px; font-size: 0.98rem; color: #404035;">
+                    <span style="margin-left: 14px; font-size: 0.98rem; color: #4B4640;">
                         (⭕ 정답: <b>{correct_n}개</b> | ❌ 오답: <b>{wrong_n}개</b>)
                     </span>
                 </div>
                 <div>
-                    <span style="font-size: 1.05rem; font-weight: bold; background: #FFF5F5; color: #DC2626; padding: 6px 14px; border-radius: 20px; border: 1px solid #FECACA;">
+                    <span style="font-size: 1.05rem; font-weight: bold; background: #FBEEEA; color: #C86446; padding: 6px 14px; border-radius: 20px; border: 1px solid #E8C4B7;">
                         복원 대상: 총 {clinic_n}개 문항
                     </span>
                 </div>
@@ -985,53 +985,53 @@ def render_omr_stage():
 
             with col_m1:
                 st.markdown(f"""
-                <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 10px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-                    <b style="color: #065F46; font-size: 0.94rem;">⭕ 확신했고 정답</b>
-                    <h3 style="margin: 4px 0; color: #059669;">{n_conf_corr}개</h3>
-                    <span style="font-size: 0.78rem; color: #047857;">안정적 득점<br>(클리닉 불필요)</span>
+                <div style="background: #EEF3EC; border: 1px solid #C7D6CB; border-radius: 10px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                    <b style="color: #3F5646; font-size: 0.94rem;">⭕ 확신했고 정답</b>
+                    <h3 style="margin: 4px 0; color: #4A6452;">{n_conf_corr}개</h3>
+                    <span style="font-size: 0.78rem; color: #5E7966;">안정적 득점<br>(클리닉 불필요)</span>
                 </div>
                 """, unsafe_allow_html=True)
             with col_m2:
                 st.markdown(f"""
-                <div style="background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 10px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-                    <b style="color: #991B1B; font-size: 0.94rem;">🚨 확신했으나 오답</b>
-                    <h3 style="margin: 4px 0; color: #DC2626;">{n_conf_wrong}개</h3>
-                    <span style="font-size: 0.78rem; color: #B91C1C;">킬러 함정 낚임<br>(우선 복원 대상)</span>
+                <div style="background: #FBEEEA; border: 1px solid #E8C4B7; border-radius: 10px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                    <b style="color: #8A3F28; font-size: 0.94rem;">🚨 확신했으나 오답</b>
+                    <h3 style="margin: 4px 0; color: #C86446;">{n_conf_wrong}개</h3>
+                    <span style="font-size: 0.78rem; color: #A8543A;">킬러 함정 낚임<br>(우선 복원 대상)</span>
                 </div>
                 """, unsafe_allow_html=True)
             with col_m3:
                 st.markdown(f"""
-                <div style="background: #FEFCE8; border: 1px solid #FDE047; border-radius: 10px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-                    <b style="color: #854D0E; font-size: 0.94rem;">⚠️ 확신 없으나 정답</b>
-                    <h3 style="margin: 4px 0; color: #CA8A04;">{n_unsure_corr}개</h3>
-                    <span style="font-size: 0.78rem; color: #A16207;">실전 불안 요소<br>(근거 재정립)</span>
+                <div style="background: #FBF3E4; border: 1px solid #E8D5A8; border-radius: 10px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                    <b style="color: #6B531C; font-size: 0.94rem;">⚠️ 확신 없으나 정답</b>
+                    <h3 style="margin: 4px 0; color: #97731F;">{n_unsure_corr}개</h3>
+                    <span style="font-size: 0.78rem; color: #7A5F22;">실전 불안 요소<br>(근거 재정립)</span>
                 </div>
                 """, unsafe_allow_html=True)
             with col_m4:
                 st.markdown(f"""
-                <div style="background: #FFF7ED; border: 1px solid #FDBA74; border-radius: 10px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-                    <b style="color: #9A3412; font-size: 0.94rem;">❌ 확신 없고 오답</b>
-                    <h3 style="margin: 4px 0; color: #EA580C;">{n_unsure_wrong}개</h3>
-                    <span style="font-size: 0.78rem; color: #C2410C;">독해 사고 공백<br>(개념 보완)</span>
+                <div style="background: #FCEEE9; border: 1px solid #F0C9BC; border-radius: 10px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                    <b style="color: #6B2A18; font-size: 0.94rem;">❌ 확신 없고 오답</b>
+                    <h3 style="margin: 4px 0; color: #B4552E;">{n_unsure_wrong}개</h3>
+                    <span style="font-size: 0.78rem; color: #96431F;">독해 사고 공백<br>(개념 보완)</span>
                 </div>
                 """, unsafe_allow_html=True)
             with col_m5:
                 st.markdown(f"""
-                <div style="background: #FAF5FF; border: 1px solid #D8B4FE; border-radius: 10px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-                    <b style="color: #6B21A8; font-size: 0.94rem;">⏱️ 시간이 없어서 찍음</b>
-                    <h3 style="margin: 4px 0; color: #9333EA;">{n_timed_guess}개</h3>
-                    <span style="font-size: 0.78rem; color: #7E22CE;">타임 어택 문항<br>(시간 관리 전략)</span>
+                <div style="background: #F2EDE6; border: 1px solid #CDC5BD; border-radius: 10px; padding: 10px 8px; text-align: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+                    <b style="color: #4B4640; font-size: 0.94rem;">⏱️ 시간이 없어서 찍음</b>
+                    <h3 style="margin: 4px 0; color: #32302C;">{n_timed_guess}개</h3>
+                    <span style="font-size: 0.78rem; color: #4B4640;">타임 어택 문항<br>(시간 관리 전략)</span>
                 </div>
                 """, unsafe_allow_html=True)
 
             # 5대 영역 합계 검증 배너
-            match_color = "#046663" if total_classified == total_q else "#DC2626"
+            match_color = "#2B2927" if total_classified == total_q else "#C86446"
             match_txt = f"✓ 전체 문항 완벽 일치 ({total_classified}/{total_q})" if total_classified == total_q else f"⚠️ 합계 불일치 ({total_classified}/{total_q})"
             st.markdown(f"""
-            <div style="margin-top: 10px; padding: 8px 14px; background: #F8FAFC; border-radius: 8px; border: 1px dashed #CBD5E1; font-size: 0.88rem; color: #475569; display: flex; justify-content: space-between; align-items: center;">
+            <div style="margin-top: 10px; padding: 8px 14px; background: #F5F2EB; border-radius: 8px; border: 1px dashed #CDC5BD; font-size: 0.88rem; color: #4B4640; display: flex; justify-content: space-between; align-items: center;">
                 <span>
                     📌 <b>5대 영역 분류 합계 검증</b>: 
-                    ⭕ {n_conf_corr} + 🚨 {n_conf_wrong} + ⚠️ {n_unsure_corr} + ❌ {n_unsure_wrong} + ⏱️ {n_timed_guess} = <b style="color: #0F172A;">총 {total_classified}문항</b>
+                    ⭕ {n_conf_corr} + 🚨 {n_conf_wrong} + ⚠️ {n_unsure_corr} + ❌ {n_unsure_wrong} + ⏱️ {n_timed_guess} = <b style="color: #1D1B17;">총 {total_classified}문항</b>
                 </span>
                 <span style="color: {match_color}; font-weight: 700;">
                     {match_txt}
@@ -1299,7 +1299,7 @@ def render_interview_stage(client):
     div[data-testid="stVerticalBlockBorderWrapper"] {
         border-radius: 14px;
         box-shadow: 0 4px 12px -2px rgba(14, 14, 41, 0.05);
-        border: 1px solid #EBEBE7;
+        border: 1px solid #E6E1DA;
         transition: all 0.2s ease-in-out;
     }
     /* 우측 열 chat_input 한 줄 나란히 배치 강제 (줄바꿈 방지) */
@@ -1590,9 +1590,9 @@ def render_report_stage(client):
         st.session_state.training_feedback = None
 
     st.markdown("""
-    <div style="background: linear-gradient(135deg, #F0F7F6 0%, #E6F3F2 100%); border: 1px solid #B8E1BE; padding: 1.5rem; border-radius: 14px; margin-bottom: 1.5rem; box-shadow: 0 4px 12px -2px rgba(14, 14, 41, 0.05);">
-        <h2 style="color: #0E0E29; margin: 0; font-size: 1.45rem; font-weight: 800; letter-spacing: -0.5px;">🎉 종합 사고 복원 완료 리포트 & AI 기출 맞춤 처방</h2>
-        <p style="color: #404035; margin-top: 8px; line-height: 1.55;">
+    <div style="background: linear-gradient(135deg, #F1F5F0 0%, #E3EAE2 100%); border: 1px solid #C7D6CB; padding: 1.5rem; border-radius: 14px; margin-bottom: 1.5rem; box-shadow: 0 4px 12px -2px rgba(14, 14, 41, 0.05);">
+        <h2 style="color: #2B2927; margin: 0; font-size: 1.45rem; font-weight: 800; letter-spacing: -0.5px;">🎉 종합 사고 복원 완료 리포트 & AI 기출 맞춤 처방</h2>
+        <p style="color: #4B4640; margin-top: 8px; line-height: 1.55;">
             모든 취약 문항의 사고 경로 복원을 마쳤습니다. AI가 전체 모의고사 PDF에서 학생의 약점에 맞는 문항을 자동으로 찾아내었습니다.
         </p>
     </div>
@@ -1601,12 +1601,12 @@ def render_report_stage(client):
     # 상단 구글 드라이브 마스터 폴더 바로가기
     if master_drive_url and master_drive_url.startswith("http"):
         st.markdown(f"""
-        <div style="background-color: #F6F6F5; border: 1px solid #EBEBE7; border-left: 4px solid #046663; padding: 12px 18px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-            <span style="color: #0E0E29; font-weight: 600;">
+        <div style="background-color: #F5F2EB; border: 1px solid #E6E1DA; border-left: 4px solid #2B2927; padding: 12px 18px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+            <span style="color: #2B2927; font-weight: 600;">
                 📂 선생님의 구글 드라이브에 최근 수능 및 평가원 모의고사 원문 PDF 전체가 보관되어 있습니다.
             </span>
             <a href="{master_drive_url}" target="_blank" style="text-decoration: none;">
-                <button style="background-color: #046663; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+                <button style="background-color: #2B2927; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
                     구글 드라이브 전체 기출 폴더 열기 ↗
                 </button>
             </a>
@@ -1621,12 +1621,12 @@ def render_report_stage(client):
 
     if ans_pdf_url and ans_pdf_url.startswith("http"):
         st.markdown(f"""
-        <div style="background-color: #F8F9FA; border: 1px solid #DCE6F1; border-left: 4px solid #1A73E8; padding: 12px 18px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-            <span style="color: #0E0E29; font-weight: 600;">
+        <div style="background-color: #FDFBF7; border: 1px solid #E6E1DA; border-left: 4px solid #2B2927; padding: 12px 18px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+            <span style="color: #2B2927; font-weight: 600;">
                 📄 이번 시험({exam_info['title']})의 <b>평가원 공식 정답표 원문 PDF</b>가 연동되어 있습니다.
             </span>
             <a href="{ans_pdf_url}" target="_blank" style="text-decoration: none;">
-                <button style="background-color: #1A73E8; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+                <button style="background-color: #2B2927; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
                     공식 정답표 원문 열기 ↗
                 </button>
             </a>
@@ -1698,7 +1698,7 @@ def render_report_stage(client):
                         if master_drive_url:
                             st.markdown(f"""
                             <a href="{master_drive_url}" target="_blank">
-                                <button style="background-color: #046663; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+                                <button style="background-color: #2B2927; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
                                     📂 구글 드라이브에서 '{prob['exam_title']}' 원문 파일 열기 ↗
                                 </button>
                             </a>
@@ -1711,16 +1711,16 @@ def render_report_stage(client):
             # 우측: 방어 미션 수행 및 AI 피드백
             with col_train_act:
                 st.markdown(f"""
-                <div style="background-color: #FEF2F2; border: 1px solid #FECACA; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px;">
-                    <b style="color: #991B1B;">😈 평가원의 함정 설계:</b><br>
-                    <span style="color: #7F1D1D; font-size: 0.95rem;">{prob['trap_concept']}</span>
+                <div style="background-color: #FBEEEA; border: 1px solid #E8C4B7; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px;">
+                    <b style="color: #8A3F28;">😈 평가원의 함정 설계:</b><br>
+                    <span style="color: #6B2A18; font-size: 0.95rem;">{prob['trap_concept']}</span>
                 </div>
                 """, unsafe_allow_html=True)
 
                 st.markdown(f"""
-                <div style="background-color: #F0F7F6; border: 1px solid #B8E1BE; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
-                    <b style="color: #046663;">💡 방어 훈련 미션:</b><br>
-                    <span style="color: #046663; font-size: 0.95rem;">👉 <b>{prob['mission']}</b></span>
+                <div style="background-color: #F1F5F0; border: 1px solid #C7D6CB; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <b style="color: #2B2927;">💡 방어 훈련 미션:</b><br>
+                    <span style="color: #2B2927; font-size: 0.95rem;">👉 <b>{prob['mission']}</b></span>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -1753,9 +1753,9 @@ def render_report_stage(client):
                 if st.session_state.training_feedback:
                     st.divider()
                     st.markdown(f"""
-                    <div style="background-color: #F6F6F5; border: 1px solid #EBEBE7; border-left: 4px solid #046663; padding: 14px 16px; border-radius: 10px; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.05);">
-                        <b style="color: #0E0E29; font-size: 1.02rem;">👨‍🏫 AI 1:1 방어 코칭:</b><br>
-                        <div style="margin-top: 8px; color: #404035; line-height: 1.6;">
+                    <div style="background-color: #F5F2EB; border: 1px solid #E6E1DA; border-left: 4px solid #2B2927; padding: 14px 16px; border-radius: 10px; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.05);">
+                        <b style="color: #2B2927; font-size: 1.02rem;">👨‍🏫 AI 1:1 방어 코칭:</b><br>
+                        <div style="margin-top: 8px; color: #4B4640; line-height: 1.6;">
                             {st.session_state.training_feedback}
                         </div>
                     </div>

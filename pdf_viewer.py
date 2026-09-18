@@ -260,12 +260,12 @@ def render_pdf_viewer(base64_pdf: str = None, pdf_url: str = None, pdf_path: str
         st.markdown(f"""
         <div style="margin-bottom: 8px; display: flex; justify-content: flex-end;">
             <a href="{pdf_url}" target="_blank" style="text-decoration: none;">
-                <button style="background-color: #0284c7; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer;">
+                <button style="background-color: #2B2927; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer;">
                     ↗ 새 창에서 시험지 전체화면 열기
                 </button>
             </a>
         </div>
-        <div style="border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+        <div style="border: 1px solid #E6E1DA; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
             <iframe 
                 src="{preview_url}" 
                 width="100%" 
@@ -286,12 +286,12 @@ def render_csat_text_view(question_item: dict, my_pick: int, status_tag: str):
     options_symbol = {1: "①", 2: "②", 3: "③", 4: "④", 5: "⑤"}
     
     st.markdown(f"""
-    <div style="background-color: var(--color-surface, #ffffff); padding: 1.2rem; border-radius: var(--radius-sm, 8px); border: 1px solid var(--color-border, #EBEBE7); font-family: 'Nanum Myeongjo', 'Batang', serif;">
-        <div style="border-bottom: 2px solid var(--color-text, #0E0E29); padding-bottom: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: bold; font-size: 1.1rem; color: var(--color-text, #0E0E29);">[ {question_item.get('q_num', '')} 번 ] {question_item.get('question', '')}</span>
-            <span style="font-size: 0.85rem; color: var(--color-text-muted, #59594A); background: var(--color-surface-muted, #F6F6F5); padding: 2px 8px; border-radius: 4px;">{status_tag}</span>
+    <div style="background-color: var(--color-surface, #ffffff); padding: 1.2rem; border-radius: var(--radius-sm, 8px); border: 1px solid var(--color-border, #E6E1DA); font-family: 'Nanum Myeongjo', 'Batang', serif;">
+        <div style="border-bottom: 2px solid var(--color-text, #2B2927); padding-bottom: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: bold; font-size: 1.1rem; color: var(--color-text, #2B2927);">[ {question_item.get('q_num', '')} 번 ] {question_item.get('question', '')}</span>
+            <span style="font-size: 0.85rem; color: var(--color-text-muted, #4B4640); background: var(--color-surface-muted, #F5F2EB); padding: 2px 8px; border-radius: 4px;">{status_tag}</span>
         </div>
-        <div style="background-color: var(--color-surface-muted, #F6F6F5); padding: 14px; border: 1px solid var(--color-border-strong, #D1D1C8); border-radius: 6px; line-height: 1.75; font-size: 0.95rem; margin-bottom: 16px; color: var(--color-text, #0E0E29); white-space: pre-wrap;">
+        <div style="background-color: var(--color-surface-muted, #F5F2EB); padding: 14px; border: 1px solid var(--color-border-strong, #CDC5BD); border-radius: 6px; line-height: 1.75; font-size: 0.95rem; margin-bottom: 16px; color: var(--color-text, #2B2927); white-space: pre-wrap;">
 {question_item.get('passage', '지문 텍스트가 등록되지 않았습니다.')}
         </div>
     </div>
