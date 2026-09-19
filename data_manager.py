@@ -847,17 +847,21 @@ def extract_elective_answers_from_pdf(pdf_bytes: bytes, client=None, elective_st
 
 제공된 정답표 PDF(또는 텍스트)를 꼼꼼히 분석하여, 아래 3가지를 정확히 구분해서 추출해 주세요:
 1. "common": 1번~{common_end}번 공통 문항 정답
-2. "{subj_a}": {elective_start}번~{total_questions}번 중 "{subj_a}" 선택과목 구간의 정답
-3. "{subj_b}": {elective_start}번~{total_questions}번 중 "{subj_b}" 선택과목 구간의 정답
+2. "subject_a": "{subj_a}" 선택과목의 {elective_start}번~{total_questions}번 정답 (총 {total_questions - elective_start + 1}개)
+3. "subject_b": "{subj_b}" 선택과목의 {elective_start}번~{total_questions}번 정답 (총 {total_questions - elective_start + 1}개)
+
+주의: 정답표(특히 '정답 및 해설' 파일)에는 선택과목 두 벌의 정답이 각각 별도 표/구간으로 나뉘어 있습니다.
+'화법과 작문' 또는 '언어와 매체'라는 제목/머리글이 붙은 표를 찾아 각각 따로 읽으세요.
+해설 본문은 무시하고 정답 일람표만 참고하세요.
 
 규칙:
 - 정답은 반드시 1, 2, 3, 4, 5 중 하나의 숫자입니다.
 - 복수정답이 있다면 가장 앞선 번호 하나만 선택하세요.
-- 반드시 아래와 같은 순수 JSON 형식으로만 응답하세요 (마크다운 코드블록 포함 가능):
+- 키 이름은 반드시 아래 영문 3개를 그대로 쓰고, 순수 JSON으로만 응답하세요:
 {{
     "common": {{"1": 1, "2": 4, ...}},
-    "{subj_a}": {{"{elective_start}": 2, ..., "{total_questions}": 4}},
-    "{subj_b}": {{"{elective_start}": 1, ..., "{total_questions}": 5}}
+    "subject_a": {{"{elective_start}": 2, ..., "{total_questions}": 4}},
+    "subject_b": {{"{elective_start}": 1, ..., "{total_questions}": 5}}
 }}
 """
         parts = []
@@ -892,20 +896,35 @@ def extract_elective_answers_from_pdf(pdf_bytes: bytes, client=None, elective_st
                     pass
             return out
 
-        common_result = _clean(parsed.get("common"))
+        def _pick(*names):
+            # 영문 키를 우선하고, AI가 한글 과목명 키로 답한 경우도 공백을 무시하고 매칭
+            for k, v in parsed.items():
+                nk = str(k).replace(" ", "").lower()
+                if any(nk == n or (n in nk) for n in names):
+                    return v
+            return None
+
+        common_result = _clean(_pick("common", "공통"))
         elective_result = {
-            subj_a: _clean(parsed.get(subj_a)),
-            subj_b: _clean(parsed.get(subj_b)),
+            subj_a: _clean(_pick("subject_a", "화법")),
+            subj_b: _clean(_pick("subject_b", "언어")),
         }
 
-        total_found = len(common_result) + len(elective_result[subj_a]) + len(elective_result[subj_b])
-        if total_found >= 15:
+        # 선택과목이 하나라도 비었으면 성공으로 취급하지 않고, AI가 돌려준 내용을 알려준다
+        missing = [s for s in (subj_a, subj_b) if len(elective_result[s]) < (total_questions - elective_start + 1) // 2]
+        if missing or len(common_result) < 15:
+            found = (f"공통 {len(common_result)}개, '{subj_a}' {len(elective_result[subj_a])}개, "
+                     f"'{subj_b}' {len(elective_result[subj_b])}개")
             return common_result, elective_result, (
-                f"Gemini AI가 공통 {len(common_result)}개, '{subj_a}' {len(elective_result[subj_a])}개, "
-                f"'{subj_b}' {len(elective_result[subj_b])}개 문항의 정답을 인식했습니다. "
-                f"아래 상세 확인 후 저장해 주세요."
+                f"정답표에서 일부만 판독했습니다 ({found}). "
+                f"{', '.join(missing)} 정답을 찾지 못했어요. 이 PDF에 두 선택과목 정답표가 모두 들어 있는지 확인하시고, "
+                f"없다면 아래 칸에 직접 입력해 주세요. (AI 응답 키: {list(parsed.keys())})"
             )
-        return {}, empty_electives, "정답표 PDF에서 선택과목 정답을 충분히 판독하지 못했습니다. PDF 내용이 선명한지 확인하시거나 정답 번호를 직접 입력해 주세요."
+        return common_result, elective_result, (
+            f"Gemini AI가 공통 {len(common_result)}개, '{subj_a}' {len(elective_result[subj_a])}개, "
+            f"'{subj_b}' {len(elective_result[subj_b])}개 문항의 정답을 인식했습니다. "
+            f"아래 상세 확인 후 저장해 주세요."
+        )
     except Exception as e:
         return {}, empty_electives, f"AI 정답 추출 중 오류가 발생했습니다: {e}"
 

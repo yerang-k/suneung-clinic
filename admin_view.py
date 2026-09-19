@@ -150,7 +150,7 @@ def render_answer_key_editor(prefix: str, total_q: int, cur_common_key: dict, cu
                             st.session_state[extracted_common_key] = common_dict
                             st.session_state[extracted_a_key] = elective_dict[subj_a]
                             st.session_state[extracted_b_key] = elective_dict[subj_b]
-                            st.toast(msg, icon="✅")
+                            st.session_state[f"{prefix}_extract_msg"] = msg
                             st.rerun()
                         else:
                             st.error(msg)
@@ -166,6 +166,13 @@ def render_answer_key_editor(prefix: str, total_q: int, cur_common_key: dict, cu
     with col_abtn2:
         if ans_pdf_url.strip():
             st.link_button("🔗 정답표 열기 ↗", ans_pdf_url.strip(), use_container_width=True)
+
+    extract_msg = st.session_state.get(f"{prefix}_extract_msg")
+    if extract_msg:
+        if "일부만" in extract_msg:
+            st.warning(extract_msg)
+        else:
+            st.success(extract_msg)
 
     extracted_common = st.session_state.get(extracted_common_key) or cur_common_key or {}
     common_upper = common_end if elective_enabled else total_q
