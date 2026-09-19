@@ -1846,12 +1846,14 @@ def render_report_stage(client):
                     st.error(f"⚠️ **방어 코칭 피드백 생성 실패:**\n\n{st.session_state['training_feedback_error']}")
 
                 if st.session_state.training_feedback:
+                    import re as _re, html as _html
+                    _fb_html = _re.sub(r"\*\*(.+?)\*\*", r"<b></b>", _html.escape(st.session_state.training_feedback)).replace(chr(10), "<br>")
                     st.divider()
                     st.markdown(f"""
                     <div style="background-color: #F5F2EB; border: 1px solid #E6E1DA; border-left: 4px solid #2B2927; padding: 14px 16px; border-radius: 10px; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.05);">
                         <b style="color: #2B2927; font-size: 1.02rem;">👨‍🏫 AI 1:1 방어 코칭:</b><br>
                         <div style="margin-top: 8px; color: #4B4640; line-height: 1.6;">
-                            {st.session_state.training_feedback}
+                            {_fb_html}
                         </div>
                     </div>
                     """, unsafe_allow_html=True)

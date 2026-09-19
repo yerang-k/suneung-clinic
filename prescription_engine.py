@@ -349,7 +349,7 @@ def evaluate_student_defense(client, problem_info: dict, student_defense: str):
     [코칭 가이드라인 - ⚡ 핵심 집중 원칙]
     1. 수험생의 시간을 위해 늘어지는 인사나 미사여구는 생략하고, 즉시 핵심 피드백을 제시하십시오.
     2. 학생이 평가원의 함정 설계를 올바른 근거로 방어해냈는지 명확히 판정하십시오.
-    3. 다음 실전 시험장에서도 바로 쓸 수 있는 원포인트 행동 요령을 2~3문장(200자 이내)으로 콤팩트하게 작성하십시오.
+    3. 다음 실전 시험장에서도 바로 쓸 수 있는 원포인트 행동 요령을 2~3문장으로 콤팩트하게 작성하십시오. 글자 수나 분량은 응답에 절대 표기하지 마십시오.
     """
 
     prompt = f"학생이 작성한 방어 훈련 내용:\n\"{student_defense}\"\n\n위 내용에 대해 콤팩트하고 명확한 맞춤 코칭 피드백을 작성해 주세요."
@@ -363,4 +363,6 @@ def evaluate_student_defense(client, problem_info: dict, student_defense: str):
             max_output_tokens=2048
         )
     )
-    return response.text
+    import re
+    txt = re.sub(r"\s*[\(（]\s*\d+\s*자\s*[\)）]\s*$", "", (response.text or "").strip())
+    return txt
