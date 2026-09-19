@@ -1658,6 +1658,13 @@ def render_interview_stage(client):
 # ==========================================
 # 4. 종합 진단 보고서 & AI 기출 탐색 및 인앱 즉석 방어 훈련
 # ==========================================
+def _last_defense_log(prob):
+    """해당 훈련 문항의 가장 최근 방어 훈련 기록 (없으면 None)"""
+    for lg in reversed(st.session_state.get("defense_logs", [])):
+        if lg.get("pid") == prob.get("id") or (lg.get("exam_title") == prob.get("exam_title") and lg.get("q_num") == prob.get("q_num")):
+            return lg
+    return None
+
 def render_report_stage(client):
     student = st.session_state.auth_student
     exam_info = st.session_state.get("exam_info")
@@ -1755,7 +1762,8 @@ def render_report_stage(client):
                 _sel = (cur_id == p["id"])
                 if st.button("✅ 훈련 중" if _sel else "🎯 방어 훈련 시작", key=f"btn_train_{t}", type="primary" if _sel else "secondary", use_container_width=True):
                     st.session_state.active_training_problem = {**p, "error_tag": t}
-                    st.session_state.training_feedback = None
+                    _lg = _last_defense_log(p)
+                    st.session_state.training_feedback = _lg["feedback"] if _lg else None
                     save_current_student_progress()
                     st.rerun()
             st.caption(f"**주제:** {p['topic']}  |  **수행 미션:** {p['mission']}")
@@ -1816,8 +1824,14 @@ def render_report_stage(client):
                 </div>
                 """, unsafe_allow_html=True)
 
+                _din_key = f"defense_input_{prob['id']}"
+                if _din_key not in st.session_state:
+                    _lg = _last_defense_log(prob)
+                    if _lg:
+                        st.session_state[_din_key] = _lg.get("answer", "")
                 defense_input = st.text_area(
                     f"📝 위 시험지의 {prob['q_num']}번 문제를 보고, 방어 미션에 맞추어 선지를 검증한 생각이나 오답 판별 근거를 적어보세요:",
+                    key=_din_key,
                     height=140,
                     placeholder="예: 선지의 '~하기 위하여'라는 목적 표현이 지문의 2문단 3번째 줄에 서술된 '결과'와 인과관계가 전도되어 있어 오답으로 판별했습니다."
                 )
@@ -1833,7 +1847,7 @@ def render_report_stage(client):
                                 fb = evaluate_student_defense(client, prob, defense_input)
                                 st.session_state.training_feedback = fb
                                 st.session_state.setdefault("defense_logs", []).append({
-                                    "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                    "time": datetime.now().strftime("%Y-%m-%d %H:%M"), "pid": prob["id"],
                                     "exam_title": prob["exam_title"], "q_num": prob["q_num"],
                                     "error_tag": prob.get("error_tag") or prob.get("trap_type") or "",
                                     "trap": prob.get("trap_concept", ""), "mission": prob.get("mission", ""),
@@ -1862,6 +1876,15 @@ def render_report_stage(client):
                     </div>
                     """, unsafe_allow_html=True)
             st.divider()
+
+    _logs = st.session_state.get("defense_logs", [])
+    if _logs:
+        with st.expander(f"🗂️ 지금까지 한 방어 훈련 기록 ({len(_logs)}건)"):
+            for lg in reversed(_logs):
+                st.markdown(f"**{lg.get('exam_title','')} {lg.get('q_num','')}번** · {lg.get('time','')}")
+                st.markdown(f"👤 내 답변: {lg.get('answer','')}")
+                st.markdown(f"👨‍🏫 AI 코칭: {lg.get('feedback','')}")
+                st.divider()
 
     if st.session_state.active_training_problem:
         import streamlit.components.v1 as _c2
