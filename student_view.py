@@ -1784,7 +1784,7 @@ def render_report_stage(client):
                 
                 with tab_tr_pdf:
                     if target_path or target_b64 or target_url:
-                        render_pdf_viewer(base64_pdf=target_b64, pdf_url=target_url, pdf_path=target_path, initial_page=prob["page"], height=780)
+                        render_pdf_viewer(base64_pdf=target_b64, pdf_url=target_url, pdf_path=target_path, initial_page=prob["page"], height=780, viewer_id=f"train_{prob['id']}")
                     else:
                         st.info(f"선생님의 구글 드라이브 또는 기출 저장소에서 '{prob['exam_title']}' 원문을 연결할 수 있습니다.")
                         if master_drive_url:
