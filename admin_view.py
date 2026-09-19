@@ -784,6 +784,7 @@ def render_admin_dashboard(client=None):
                     "이름": s.get("student_name"),
                     "시험명": s.get("exam_title"),
                     "분석 문항 수": len(s.get("diagnosed_items", [])),
+                    "방어 훈련 횟수": len(s.get("defense_logs") or []),
                     "주요 감지 취약점": ", ".join(s.get("error_tags", []))
                 })
             st.dataframe(pd.DataFrame(rows), use_container_width=True)
@@ -827,6 +828,13 @@ def render_admin_dashboard(client=None):
                     st.markdown(f"**[{s.get('timestamp')}] {s.get('student_name')}({s.get('student_id')}) - {s.get('exam_title')}**")
                     for d in s.get("diagnosed_items", []):
                         st.markdown(f"- **{d.get('q_num')}번 ({d.get('status')}):** 오류 태그: `{d.get('error_tag')}` | 행동 원칙: *{d.get('action_rule')}*")
+                    logs = s.get("defense_logs") or []
+                    if logs:
+                        st.markdown(f"**🛡️ 실전 방어 훈련 기록 ({len(logs)}건)**")
+                        for lg in logs:
+                            st.markdown(f"- `{lg.get('time','')}` {lg.get('exam_title','')} {lg.get('q_num','')}번 · 미션: *{lg.get('mission','')}*")
+                            st.markdown(f"  - 👤 학생 답변: {lg.get('answer','')}")
+                            st.markdown(f"  - 👨‍🏫 AI 코칭: {lg.get('feedback','')}")
                     st.divider()
         else:
             st.info("아직 제출된 학생 진단 기록이 없습니다.")

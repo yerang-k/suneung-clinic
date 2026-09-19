@@ -59,7 +59,7 @@ function setup() {
   let sSubs = ss.getSheetByName("Submissions");
   if (!sSubs) {
     sSubs = ss.insertSheet("Submissions");
-    sSubs.appendRow(["timestamp", "student_id", "student_name", "exam_id", "exam_title", "total_time", "time_pressure", "error_tags", "diagnosed_items_json"]);
+    sSubs.appendRow(["timestamp", "student_id", "student_name", "exam_id", "exam_title", "total_time", "time_pressure", "error_tags", "diagnosed_items_json", "defense_logs_json"]);
   }
   
   // 기본 '시트1' 삭제 (비어있을 경우)
@@ -348,6 +348,10 @@ function readSubmissions_(ss) {
     try {
       diag = JSON.parse(rows[i][8]);
     } catch(e) {}
+    let defLogs = [];
+    try {
+      if (rows[i][9]) defLogs = JSON.parse(rows[i][9]);
+    } catch(e) {}
     list.push({
       timestamp: ts,
       student_id: String(rows[i][1]),
@@ -357,7 +361,8 @@ function readSubmissions_(ss) {
       total_time: Number(rows[i][5]),
       time_pressure: String(rows[i][6]),
       error_tags: String(rows[i][7]).split(",").map(t => t.trim()).filter(Boolean),
-      diagnosed_items: diag
+      diagnosed_items: diag,
+      defense_logs: defLogs
     });
   }
   return list;
@@ -366,6 +371,7 @@ function readSubmissions_(ss) {
 function appendSubmission_(ss, sub) {
   let s = ss.getSheetByName("Submissions");
   if (!s) { setup(); s = ss.getSheetByName("Submissions"); }
+  if (String(s.getRange(1, 10).getValue()) === "") s.getRange(1, 10).setValue("defense_logs_json");
   const ts = sub.timestamp || Utilities.formatDate(new Date(), "GMT+9", "yyyy-MM-dd HH:mm:ss");
   const tags = Array.isArray(sub.error_tags) ? sub.error_tags.join(", ") : String(sub.error_tags || "");
   const diagJson = JSON.stringify(sub.diagnosed_items || []);
@@ -379,6 +385,7 @@ function appendSubmission_(ss, sub) {
     Number(sub.total_time || 80),
     String(sub.time_pressure || ""),
     tags,
-    diagJson
+    diagJson,
+    JSON.stringify(sub.defense_logs || [])
   ]);
 }

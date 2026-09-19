@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import datetime
 import json
 import re
 import requests
@@ -404,7 +405,8 @@ def save_current_student_progress():
         "current_analysis": st.session_state.get("current_analysis"),
         "diagnosed_items": st.session_state.get("diagnosed_items", []),
         "active_training_problem": st.session_state.get("active_training_problem"),
-        "training_feedback": st.session_state.get("training_feedback")
+        "training_feedback": st.session_state.get("training_feedback"),
+        "defense_logs": st.session_state.get("defense_logs", [])
     }
     save_student_progress(sid, progress_data)
 
@@ -416,7 +418,7 @@ def load_student_progress_to_session(progress_data: dict):
         "student_stage", "exam_info", "total_time", "time_pressure", "elective_subject",
         "vulnerable_queue", "queue_index", "interview_step", "chat_history",
         "draft_summary", "current_analysis", "diagnosed_items",
-        "active_training_problem", "training_feedback"
+        "active_training_problem", "training_feedback", "defense_logs"
     ]
     for k in keys:
         if k in progress_data and progress_data[k] is not None:
@@ -442,16 +444,10 @@ def render_student_welcome_header():
     }.get(stage, "진단 진행 중")
 
     st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #F1F5F0 0%, #E3EAE2 100%); border: 1px solid #C7D6CB; border-radius: 14px; padding: 1.15rem 1.5rem; margin-bottom: 1.2rem; box-shadow: 0 4px 12px -2px rgba(14, 14, 41, 0.05);">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-            <div>
-                <h2 style="color: #2B2927; margin: 0; font-size: 1.55rem; font-weight: 800; letter-spacing: -0.5px;">
-                    👋 반가워요, <span style="color: #2B2927;">{student['name']}</span> ({student['student_id']}) 학생!
-                </h2>
-            </div>
-            <div style="text-align: right; background: #ffffff; padding: 8px 16px; border-radius: 8px; border: 1px solid #C7D6CB; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-                <b style="font-size: 1.02rem; color: #2B2927;">🎯 {stage_desc}</b>
-            </div>
+    <div style="background:#EEF3EE; border:1px solid #C7D6CB; border-radius:10px; padding:0.45rem 1rem; margin-bottom:0.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <span style="color:#2B2927; font-size:1rem; font-weight:700;">👋 {student['name']} ({student['student_id']}) 학생</span>
+            <span style="font-size:0.85rem; color:#4B4640;">🎯 {stage_desc}</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -504,7 +500,6 @@ def render_stage_navigation_bar():
                 save_current_student_progress()
                 st.toast("✅ 현재까지의 학습 진행 상태가 안전하게 저장되었습니다! 다음에 로그인 시 바로 이어서 하실 수 있습니다.", icon="💾")
 
-    st.write("")
 
 # ==========================================
 # 1. 학생 로그인 뷰
@@ -1686,14 +1681,7 @@ def render_report_stage(client):
     if "training_feedback" not in st.session_state:
         st.session_state.training_feedback = None
 
-    st.markdown("""
-    <div style="background: linear-gradient(135deg, #F1F5F0 0%, #E3EAE2 100%); border: 1px solid #C7D6CB; padding: 1.5rem; border-radius: 14px; margin-bottom: 1.5rem; box-shadow: 0 4px 12px -2px rgba(14, 14, 41, 0.05);">
-        <h2 style="color: #2B2927; margin: 0; font-size: 1.45rem; font-weight: 800; letter-spacing: -0.5px;">🎉 종합 사고 복원 완료 리포트 & AI 기출 맞춤 처방</h2>
-        <p style="color: #4B4640; margin-top: 8px; line-height: 1.55;">
-            모든 취약 문항의 사고 경로 복원을 마쳤습니다. AI가 전체 모의고사 PDF에서 학생의 약점에 맞는 문항을 자동으로 찾아내었습니다.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("##### 🎉 종합 사고 복원 리포트 & AI 기출 맞춤 처방")
 
     # 시험지 공식 정답표 구글 드라이브 링크가 있는 경우 바로가기 제공
     ans_pdf_url = exam_info.get("answer_pdf_url", "")
@@ -1703,27 +1691,20 @@ def render_report_stage(client):
 
     if ans_pdf_url and ans_pdf_url.startswith("http"):
         st.markdown(f"""
-        <div style="background-color: #FDFBF7; border: 1px solid #E6E1DA; border-left: 4px solid #2B2927; padding: 12px 18px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
+        <div style="background-color: #FDFBF7; border: 1px solid #E6E1DA; border-left: 4px solid #2B2927; padding: 6px 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;">
             <span style="color: #2B2927; font-weight: 600;">
                 📄 이번 시험({exam_info['title']})의 <b>평가원 공식 정답표 원문 PDF</b>가 연동되어 있습니다.
             </span>
             <a href="{ans_pdf_url}" target="_blank" style="text-decoration: none;">
-                <button style="background-color: #2B2927; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+                <button style="background-color: #2B2927; color: white; border: none; padding: 3px 10px; border-radius: 6px; font-weight: 600; font-size: 0.8rem; cursor: pointer;">
                     공식 정답표 원문 열기 ↗
                 </button>
             </a>
         </div>
         """, unsafe_allow_html=True)
 
-    col_sum1, col_sum2, col_sum3 = st.columns(3)
-    with col_sum1:
-        st.metric("학생 이름", f"{student['name']} ({student['student_id']})")
-    with col_sum2:
-        st.metric("진단 시험", exam_info['title'])
-    with col_sum3:
-        st.metric("분석된 취약 문항", f"{len(diagnosed)}개")
+    st.caption(f"👤 **{student['name']}** ({student['student_id']})  |  📝 {exam_info['title']}  |  🚨 분석된 취약 문항 **{len(diagnosed)}개**")
 
-    st.divider()
 
     # 오류 태그 집계
     tag_counts = {}
@@ -1770,7 +1751,7 @@ def render_report_stage(client):
                         
                         _sel = bool(st.session_state.active_training_problem and st.session_state.active_training_problem.get("id") == p["id"])
                         if st.button("✅ 훈련 중 (아래 확인)" if _sel else f"🎯 방어 훈련 시작 ({p['q_num']}번)", key=f"btn_train_{p['id']}", type="primary" if _sel else "secondary", use_container_width=True):
-                            st.session_state.active_training_problem = p
+                            st.session_state.active_training_problem = {**p, "error_tag": t}
                             st.session_state.training_feedback = None
                             save_current_student_progress()
                             st.rerun()
@@ -1847,6 +1828,13 @@ def render_report_stage(client):
                             try:
                                 fb = evaluate_student_defense(client, prob, defense_input)
                                 st.session_state.training_feedback = fb
+                                st.session_state.setdefault("defense_logs", []).append({
+                                    "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                    "exam_title": prob["exam_title"], "q_num": prob["q_num"],
+                                    "error_tag": prob.get("error_tag") or prob.get("trap_type") or "",
+                                    "trap": prob.get("trap_concept", ""), "mission": prob.get("mission", ""),
+                                    "answer": defense_input.strip(), "feedback": fb,
+                                })
                                 st.session_state["training_feedback_error"] = None
                                 save_current_student_progress()
                                 st.rerun()  # ✅ 성공 시에만 리런
@@ -1895,7 +1883,8 @@ def render_report_stage(client):
                 "total_time": st.session_state.total_time,
                 "time_pressure": st.session_state.time_pressure,
                 "diagnosed_items": diagnosed,
-                "error_tags": list(tag_counts.keys())
+                "error_tags": list(tag_counts.keys()),
+                "defense_logs": st.session_state.get("defense_logs", [])
             }
             save_submission(sub_data)
             
