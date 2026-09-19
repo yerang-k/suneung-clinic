@@ -360,7 +360,7 @@ def evaluate_student_defense(client, problem_info: dict, student_defense: str):
         config=types.GenerateContentConfig(
             system_instruction=system_prompt,
             temperature=0.2,
-            max_output_tokens=300
+            max_output_tokens=2048
         )
     )
     return response.text

@@ -1523,7 +1523,7 @@ def render_interview_stage(client):
                                             config=types.GenerateContentConfig(
                                                 system_instruction=system_prompt,
                                                 temperature=0.2,
-                                                max_output_tokens=250
+                                                max_output_tokens=1024
                                             )
                                         )
                                         st.session_state.chat_history.append({"role": "assistant", "content": response.text})
@@ -1553,7 +1553,7 @@ def render_interview_stage(client):
                                 config=types.GenerateContentConfig(
                                     system_instruction=system_prompt,
                                     temperature=0.2,
-                                    max_output_tokens=250
+                                    max_output_tokens=1024
                                 )
                             )
                             st.session_state.chat_history.append({"role": "assistant", "content": response.text})
@@ -1695,21 +1695,6 @@ def render_report_stage(client):
     </div>
     """, unsafe_allow_html=True)
 
-    # 상단 구글 드라이브 마스터 폴더 바로가기
-    if master_drive_url and master_drive_url.startswith("http"):
-        st.markdown(f"""
-        <div style="background-color: #F5F2EB; border: 1px solid #E6E1DA; border-left: 4px solid #2B2927; padding: 12px 18px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px -2px rgba(14, 14, 41, 0.04);">
-            <span style="color: #2B2927; font-weight: 600;">
-                📂 선생님의 구글 드라이브에 최근 수능 및 평가원 모의고사 원문 PDF 전체가 보관되어 있습니다.
-            </span>
-            <a href="{master_drive_url}" target="_blank" style="text-decoration: none;">
-                <button style="background-color: #2B2927; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
-                    구글 드라이브 전체 기출 폴더 열기 ↗
-                </button>
-            </a>
-        </div>
-        """, unsafe_allow_html=True)
-
     # 시험지 공식 정답표 구글 드라이브 링크가 있는 경우 바로가기 제공
     ans_pdf_url = exam_info.get("answer_pdf_url", "")
     if not ans_pdf_url and "current_exam_id" in st.session_state:
@@ -1746,15 +1731,17 @@ def render_report_stage(client):
         t = item["error_tag"]
         tag_counts[t] = tag_counts.get(t, 0) + 1
 
-    st.subheader("📊 나의 수능 국어 인지 오류 패턴 분포")
-    col_chart, col_tags = st.columns([1, 1.2])
-    with col_chart:
-        df_tags = pd.DataFrame(list(tag_counts.items()), columns=["오류 유형", "빈도"])
-        st.bar_chart(df_tags.set_index("오류 유형"))
-    with col_tags:
-        st.write("시험장에서 가장 빈번하게 발생한 취약점 유형입니다:")
-        for t, cnt in sorted(tag_counts.items(), key=lambda x: x[1], reverse=True):
-            st.markdown(f"- 🚨 **`{t}`**: 총 **{cnt}회** 발생")
+    st.markdown("##### 📊 나의 인지 오류 패턴")
+    _mx = max(tag_counts.values())
+    _rows = "".join(
+        f'<div style="display:flex;align-items:center;gap:10px;margin:4px 0;font-size:0.9rem;">'
+        f'<span style="width:150px;flex:none;color:#2B2927;">{t}</span>'
+        f'<div style="flex:1;background:#EEE9E0;border-radius:6px;height:12px;max-width:320px;">'
+        f'<div style="width:{cnt/_mx*100:.0f}%;background:#5E7966;height:12px;border-radius:6px;"></div></div>'
+        f'<b style="color:#2B2927;">{cnt}회</b></div>'
+        for t, cnt in sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)
+    )
+    st.markdown(_rows, unsafe_allow_html=True)
 
     st.divider()
 
@@ -1762,13 +1749,36 @@ def render_report_stage(client):
     st.subheader("🎯 AI 맞춤 기출 탐색 & 실전 방어 훈련")
     st.markdown("""
     AI가 최근 3개년 평가원 기출 모의고사 전체 시험지 속에서 **학생의 취약점과 동일한 평가원 함정 구조를 가진 문항**을 탐색했습니다.  
-    아래 문항 중 하나를 선택하여 **인앱 실물 시험지 뷰어로 해당 페이지를 직접 띄우고 즉석 방어 훈련**을 진행해 보세요!
+    문항 카드의 **[방어 훈련 시작]** 버튼을 누르면 목록 바로 아래에 시험지와 훈련 화면이 열립니다.
     """)
+
+    # 오류 태그별 AI 탐색 기출 문항 카드 리스트
+    for t, cnt in tag_counts.items():
+        problems = get_prescription_problems(t)
+        with st.container(border=True):
+            st.markdown(f"#### 🚨 [{t}] 극복 솔루션 (이번 시험 {cnt}회 감지)")
+            st.write(f"AI가 전체 모의고사 PDF 중에서 `{t}` 함정이 가장 날카롭게 설계된 **{len(problems)}개 기출 문제**를 선별했습니다:")
+            
+            p_cols = st.columns(len(problems))
+            for idx, p in enumerate(problems):
+                with p_cols[idx]:
+                    with st.container(border=True):
+                        st.markdown(f"📌 **{p['exam_title']} {p['q_num']}번**")
+                        st.caption(f"**제재:** {p['genre']} ({p['page']}p)")
+                        st.caption(f"**주제:** {p['topic']}")
+                        st.markdown(f"**수행 미션:** *{p['mission']}*")
+                        
+                        _sel = bool(st.session_state.active_training_problem and st.session_state.active_training_problem.get("id") == p["id"])
+                        if st.button("✅ 훈련 중 (아래 확인)" if _sel else f"🎯 방어 훈련 시작 ({p['q_num']}번)", key=f"btn_train_{p['id']}", type="primary" if _sel else "secondary", use_container_width=True):
+                            st.session_state.active_training_problem = p
+                            st.session_state.training_feedback = None
+                            save_current_student_progress()
+                            st.rerun()
 
     # 현재 실전 방어 훈련 중인 문항이 있는 경우 상단에 인터랙티브 뷰 렌더링
     if st.session_state.active_training_problem:
         prob = st.session_state.active_training_problem
-        with st.container(border=True):
+        with st.container(border=True, key="training_panel"):
             col_th1, col_th2 = st.columns([3, 1])
             with col_th1:
                 st.markdown(f"### 🛡️ [실전 방어 훈련] {prob['exam_title']} **{prob['q_num']}번** ({prob['page']}페이지)")
@@ -1859,27 +1869,11 @@ def render_report_stage(client):
                     """, unsafe_allow_html=True)
             st.divider()
 
-    # 오류 태그별 AI 탐색 기출 문항 카드 리스트
-    for t, cnt in tag_counts.items():
-        problems = get_prescription_problems(t)
-        with st.container(border=True):
-            st.markdown(f"#### 🚨 [{t}] 극복 솔루션 (이번 시험 {cnt}회 감지)")
-            st.write(f"AI가 전체 모의고사 PDF 중에서 `{t}` 함정이 가장 날카롭게 설계된 **{len(problems)}개 기출 문제**를 선별했습니다:")
-            
-            p_cols = st.columns(len(problems))
-            for idx, p in enumerate(problems):
-                with p_cols[idx]:
-                    with st.container(border=True):
-                        st.markdown(f"📌 **{p['exam_title']} {p['q_num']}번**")
-                        st.caption(f"**제재:** {p['genre']} ({p['page']}p)")
-                        st.caption(f"**주제:** {p['topic']}")
-                        st.markdown(f"**수행 미션:** *{p['mission']}*")
-                        
-                        if st.button(f"🎯 실물 시험지 띄우고 방어 훈련 ({p['q_num']}번)", key=f"btn_train_{p['id']}", use_container_width=True):
-                            st.session_state.active_training_problem = p
-                            st.session_state.training_feedback = None
-                            save_current_student_progress()
-                            st.rerun()
+    if st.session_state.active_training_problem:
+        import streamlit.components.v1 as _c2
+        _c2.html(f"""<script>/* {st.session_state.active_training_problem['id']} */
+        setTimeout(()=>{{const e=window.parent.document.querySelector('.st-key-training_panel'); if(e) e.scrollIntoView({{behavior:'smooth',block:'start'}});}},250);
+        </script>""", height=0)
 
     st.divider()
     st.subheader("📝 문항별 복원된 나의 사고 & 행동 원칙 총정리")
