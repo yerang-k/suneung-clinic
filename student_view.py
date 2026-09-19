@@ -1847,7 +1847,7 @@ def render_report_stage(client):
 
                 if st.session_state.training_feedback:
                     import re as _re, html as _html
-                    _fb_html = _re.sub(r"\*\*(.+?)\*\*", r"<b></b>", _html.escape(st.session_state.training_feedback)).replace(chr(10), "<br>")
+                    _fb_html = _re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", _html.escape(st.session_state.training_feedback)).replace(chr(10), "<br>")
                     st.divider()
                     st.markdown(f"""
                     <div style="background-color: #F5F2EB; border: 1px solid #E6E1DA; border-left: 4px solid #2B2927; padding: 14px 16px; border-radius: 10px; box-shadow: 0 2px 8px -2px rgba(14, 14, 41, 0.05);">
