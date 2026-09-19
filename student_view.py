@@ -1331,40 +1331,42 @@ def render_interview_stage(client):
             st.rerun()
 
     # 취약 문항 빠른 점프 및 완료 현황 칩
-    chip_cols = st.columns(min(max(len(queue), 1), 8))
-    for idx, item in enumerate(queue):
-        col_target = chip_cols[idx % min(max(len(queue), 1), 8)]
-        with col_target:
-            is_cur = (idx == q_idx)
-            is_done = any(d.get("q_num") == item["q_num"] for d in st.session_state.get("diagnosed_items", []))
-            icon = "✅" if is_done else ("🎯" if is_cur else "⏳")
-            lbl = f"{icon} {item['q_num']}번"
+    done_cnt = len({d.get("q_num") for d in st.session_state.get("diagnosed_items", [])})
+    with st.expander(f"📋 문항 이동 (현재 {q_num}번 · 완료 {done_cnt}/{len(queue)}) — 눌러서 펼치기", expanded=False):
+        chip_cols = st.columns(min(max(len(queue), 1), 8))
+        for idx, item in enumerate(queue):
+            col_target = chip_cols[idx % min(max(len(queue), 1), 8)]
+            with col_target:
+                is_cur = (idx == q_idx)
+                is_done = any(d.get("q_num") == item["q_num"] for d in st.session_state.get("diagnosed_items", []))
+                icon = "✅" if is_done else ("🎯" if is_cur else "⏳")
+                lbl = f"{icon} {item['q_num']}번"
             
-            if st.button(lbl, key=f"nav_chip_q_{idx}", use_container_width=True, help=f"{item['q_num']}번 ({item['status']}) - 클릭 시 이동"):
-                if idx != q_idx:
-                    st.session_state.queue_index = idx
-                    target_q = queue[idx]
-                    done_item = next((d for d in st.session_state.get("diagnosed_items", []) if d.get("q_num") == target_q["q_num"]), None)
-                    if done_item:
-                        st.session_state.interview_step = "ITEM_COMPLETED"
-                        st.session_state.current_analysis = done_item
-                    else:
-                        st.session_state.interview_step = "CHAT"
-                        st.session_state.current_analysis = None
-                        jump_msg = build_initial_interview_question(
-                            exam_info, 
-                            target_q['q_num'], 
-                            target_q['status'], 
-                            target_q['my_pick'],
-                            target_q.get('correct_opt'),
-                            target_q.get('matrix_type')
-                        )
-                        st.session_state.chat_history = [{
-                            "role": "assistant",
-                            "content": jump_msg
-                        }]
-                    save_current_student_progress()
-                    st.rerun()
+                if st.button(lbl, key=f"nav_chip_q_{idx}", use_container_width=True, help=f"{item['q_num']}번 ({item['status']}) - 클릭 시 이동"):
+                    if idx != q_idx:
+                        st.session_state.queue_index = idx
+                        target_q = queue[idx]
+                        done_item = next((d for d in st.session_state.get("diagnosed_items", []) if d.get("q_num") == target_q["q_num"]), None)
+                        if done_item:
+                            st.session_state.interview_step = "ITEM_COMPLETED"
+                            st.session_state.current_analysis = done_item
+                        else:
+                            st.session_state.interview_step = "CHAT"
+                            st.session_state.current_analysis = None
+                            jump_msg = build_initial_interview_question(
+                                exam_info, 
+                                target_q['q_num'], 
+                                target_q['status'], 
+                                target_q['my_pick'],
+                                target_q.get('correct_opt'),
+                                target_q.get('matrix_type')
+                            )
+                            st.session_state.chat_history = [{
+                                "role": "assistant",
+                                "content": jump_msg
+                            }]
+                        save_current_student_progress()
+                        st.rerun()
 
     # 좌측 PDF창과 우측 채팅창의 완벽한 분리 및 우측 고정 CSS
     st.markdown("""
