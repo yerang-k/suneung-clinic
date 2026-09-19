@@ -1730,31 +1730,35 @@ def render_report_stage(client):
     st.subheader("🎯 AI 맞춤 기출 탐색 & 실전 방어 훈련")
     st.markdown("""
     AI가 최근 3개년 평가원 기출 모의고사 전체 시험지 속에서 **학생의 취약점과 동일한 평가원 함정 구조를 가진 문항**을 탐색했습니다.  
-    문항 카드의 **[방어 훈련 시작]** 버튼을 누르면 목록 바로 아래에 시험지와 훈련 화면이 열립니다.
+    기출 문항을 고르고 **[방어 훈련 시작]** 버튼을 누르면 이 아래에 시험지와 훈련 화면이 열립니다.
     """)
 
-    # 오류 태그별 AI 탐색 기출 문항 카드 리스트
+    # 오류 태그별 AI 탐색 기출 문항: 드롭다운으로 선택 → 미션 확인 → 훈련 시작
     for t, cnt in tag_counts.items():
         problems = get_prescription_problems(t)
+        if not problems:
+            continue
         with st.container(border=True):
-            st.markdown(f"#### 🚨 [{t}] 극복 솔루션 (이번 시험 {cnt}회 감지)")
-            st.write(f"AI가 전체 모의고사 PDF 중에서 `{t}` 함정이 가장 날카롭게 설계된 **{len(problems)}개 기출 문제**를 선별했습니다:")
-            
-            p_cols = st.columns(len(problems))
-            for idx, p in enumerate(problems):
-                with p_cols[idx]:
-                    with st.container(border=True):
-                        st.markdown(f"📌 **{p['exam_title']} {p['q_num']}번**")
-                        st.caption(f"**제재:** {p['genre']} ({p['page']}p)")
-                        st.caption(f"**주제:** {p['topic']}")
-                        st.markdown(f"**수행 미션:** *{p['mission']}*")
-                        
-                        _sel = bool(st.session_state.active_training_problem and st.session_state.active_training_problem.get("id") == p["id"])
-                        if st.button("✅ 훈련 중 (아래 확인)" if _sel else f"🎯 방어 훈련 시작 ({p['q_num']}번)", key=f"btn_train_{p['id']}", type="primary" if _sel else "secondary", use_container_width=True):
-                            st.session_state.active_training_problem = {**p, "error_tag": t}
-                            st.session_state.training_feedback = None
-                            save_current_student_progress()
-                            st.rerun()
+            st.markdown(f"**🚨 [{t}]** 극복 솔루션 · 이번 시험 {cnt}회 감지 · 추천 기출 {len(problems)}개")
+            cur_id = (st.session_state.active_training_problem or {}).get("id")
+            labels = {p["id"]: f"{p['exam_title']} {p['q_num']}번 · {p['genre']} ({p['page']}p)" for p in problems}
+            col_sel, col_go = st.columns([3, 1], vertical_alignment="bottom")
+            with col_sel:
+                sel_id = st.selectbox(
+                    "훈련할 기출 문항 선택", options=[p["id"] for p in problems],
+                    format_func=lambda i, labels=labels: labels[i],
+                    index=[p["id"] for p in problems].index(cur_id) if cur_id in labels else 0,
+                    key=f"sel_train_{t}",
+                )
+            p = next(x for x in problems if x["id"] == sel_id)
+            with col_go:
+                _sel = (cur_id == p["id"])
+                if st.button("✅ 훈련 중" if _sel else "🎯 방어 훈련 시작", key=f"btn_train_{t}", type="primary" if _sel else "secondary", use_container_width=True):
+                    st.session_state.active_training_problem = {**p, "error_tag": t}
+                    st.session_state.training_feedback = None
+                    save_current_student_progress()
+                    st.rerun()
+            st.caption(f"**주제:** {p['topic']}  |  **수행 미션:** {p['mission']}")
 
     # 현재 실전 방어 훈련 중인 문항이 있는 경우 상단에 인터랙티브 뷰 렌더링
     if st.session_state.active_training_problem:
