@@ -79,6 +79,11 @@ def render_drive_folder_pdf_picker(target_session_key: str, picker_id: str, mast
     if st.session_state.get(msg_key):
         st.success(f"✅ {st.session_state.pop(msg_key)}")
 
+def _format_answers(answer_dict: dict, start: int, end: int) -> str:
+    """{문항번호: 정답}을 start~end번 순서의 '11423 53423' 형태(5개씩 공백 구분) 문자열로 변환"""
+    digits = [str(answer_dict.get(q, "")) for q in range(start, end + 1)]
+    return " ".join("".join(digits[i:i + 5]) for i in range(0, len(digits), 5)).strip()
+
 def render_answer_key_editor(prefix: str, total_q: int, cur_common_key: dict, cur_elective_enabled: bool,
                               cur_elective_keys: dict, cur_ans_pdf_url: str, master_folder_url: str,
                               drive_sa_json: str, client):
@@ -151,6 +156,11 @@ def render_answer_key_editor(prefix: str, total_q: int, cur_common_key: dict, cu
                             st.session_state[extracted_a_key] = elective_dict[subj_a]
                             st.session_state[extracted_b_key] = elective_dict[subj_b]
                             st.session_state[f"{prefix}_extract_msg"] = msg
+                            # 텍스트 칸은 이전 입력값을 기억하므로, 추출값을 직접 채워 넣는다
+                            # (아직 이번 실행에서 렌더링되기 전이라 대입 가능)
+                            st.session_state[f"{prefix}_common_ans_str_True"] = _format_answers(common_dict, 1, common_end)
+                            st.session_state[f"{prefix}_elective_ans_str_{subj_a}"] = _format_answers(elective_dict[subj_a], elective_start, total_q)
+                            st.session_state[f"{prefix}_elective_ans_str_{subj_b}"] = _format_answers(elective_dict[subj_b], elective_start, total_q)
                             st.rerun()
                         else:
                             st.error(msg)
@@ -159,6 +169,7 @@ def render_answer_key_editor(prefix: str, total_q: int, cur_common_key: dict, cu
                         extracted_dict, msg = extract_answers_from_pdf(target_bytes, client=client)
                         if extracted_dict:
                             st.session_state[extracted_common_key] = extracted_dict
+                            st.session_state[f"{prefix}_common_ans_str_False"] = _format_answers(extracted_dict, 1, total_q)
                             st.toast(msg, icon="✅")
                             st.rerun()
                         else:
@@ -185,11 +196,12 @@ def render_answer_key_editor(prefix: str, total_q: int, cur_common_key: dict, cu
     common_label = f"1번~{common_end}번 공통 정답 빠른 붙여넣기" if elective_enabled else "1번~45번 정답 빠른 붙여넣기 (1부터 5까지 숫자)"
     # 선택과목 on/off를 전환하면 위젯 key를 바꿔, 이전 모드에서 남은 미리보기 값이
     # 새 문항 범위에 안 맞게 그대로 유지되는 것을 방지한다.
+    common_key = f"{prefix}_common_ans_str_{elective_enabled}"
     common_str = st.text_area(
         common_label,
-        value=common_preview,
+        **({} if common_key in st.session_state else {"value": common_preview}),
         placeholder="예: 11423 53423 25415 35413 24153",
-        key=f"{prefix}_common_ans_str_{elective_enabled}"
+        key=common_key
     )
     common_answer_key = parse_answer_string(common_str) if common_str.strip() else extracted_common
     if elective_enabled:
@@ -210,11 +222,12 @@ def render_answer_key_editor(prefix: str, total_q: int, cur_common_key: dict, cu
                     subj_preview = " ".join(["".join(subj_parts[j:j + 5]) for j in range(0, len(subj_parts), 5)]).strip()
                 else:
                     subj_preview = ""
+                subj_key = f"{prefix}_elective_ans_str_{subj}"
                 subj_str = st.text_area(
                     f"{elective_start}번~{total_q}번 '{subj}' 정답",
-                    value=subj_preview,
+                    **({} if subj_key in st.session_state else {"value": subj_preview}),
                     placeholder="예: 24153",
-                    key=f"{prefix}_elective_ans_str_{subj}"
+                    key=subj_key
                 )
                 if subj_str.strip():
                     raw = parse_answer_string(subj_str)
