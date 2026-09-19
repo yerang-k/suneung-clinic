@@ -6,13 +6,17 @@
  * 2. 메뉴 [확장 프로그램] -> [Apps Script] 클릭
  * 3. 이 코드 전체를 Code.gs에 붙여넣기 후 상단 저장(Ctrl+S)
  * 4. 상단 함수 선택 드롭다운에서 'setup' 선택 후 [실행] 클릭 (권한 승인)
- * 5. 우측 상단 [배포] -> [새 배포] 클릭
+ * 5. 우측 상단 [배포] -> [새 배포] 클릭 (처음 설치할 때만)
  *    - 유형: 웹 앱
  *    - 설명: 1.0
  *    - 다음 사용자 권한으로 실행: 나(내 계정)
  *    - 액세스 권한: 모든 사용자 (Anyone)  <-- 중요!
  * 6. 생성된 '웹 앱 URL'(https://script.google.com/macros/s/.../exec)을 복사하여
  *    앱의 [교사용 관리자 모드] -> [마스터 연동] 또는 Streamlit Secrets에 등록하세요.
+ *
+ * [코드를 수정/업데이트할 때] 주소가 바뀌지 않게 반드시:
+ *    [배포] -> [배포 관리] -> 연필(수정) -> 버전: [새 버전] -> [배포]
+ *    ('새 배포'를 만들면 웹 앱 URL이 바뀌어 앱 연동이 끊어집니다)
  */
 
 function setup() {
@@ -252,6 +256,11 @@ function saveExam_(ss, ex) {
   const createdAt = String(ex.created_at || new Date().toISOString().split("T")[0]);
   
   const extraJson = buildExamExtraJson_(ex);
+
+  // 기존 시트(5열)에도 6번째 열 제목을 자동으로 추가
+  if (!String(s.getRange(1, 6).getValue() || "").trim()) {
+    s.getRange(1, 6).setValue("extra_json");
+  }
 
   if (foundRow > 0) {
     s.getRange(foundRow, 2).setValue(title);
