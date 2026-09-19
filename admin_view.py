@@ -337,13 +337,14 @@ def render_admin_dashboard(client=None):
 
         flash = st.session_state.get("_exam_flash")
         if flash:
-            col_f1, col_f2 = st.columns([6, 1])
-            with col_f1:
-                st.success(flash)
-            with col_f2:
-                if st.button("닫기", key="btn_close_exam_flash", use_container_width=True):
-                    st.session_state.pop("_exam_flash", None)
-                    st.rerun()
+            with st.container(key="exam_flash"):
+                col_f1, col_f2 = st.columns([6, 1], vertical_alignment="center")
+                with col_f1:
+                    st.success(flash)
+                with col_f2:
+                    if st.button("닫기", key="btn_close_exam_flash", use_container_width=True):
+                        st.session_state.pop("_exam_flash", None)
+                        st.rerun()
 
         tab2_cfg = get_admin_config()
         master_folder_url = tab2_cfg.get("google_drive_folder_url", "")

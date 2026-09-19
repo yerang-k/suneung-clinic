@@ -379,6 +379,23 @@ div[data-testid="stAlert"] {
     border: 1px solid var(--color-border) !important;
 }
 
+/* 저장 완료 안내 상자와 '닫기' 버튼의 높이를 맞춤
+   (Streamlit이 세로 가운데 정렬용으로 컬럼에 주는 margin:auto를 이 영역에서만 제거하고 stretch) */
+.st-key-exam_flash [data-testid="stHorizontalBlock"] { align-items: stretch !important; }
+.st-key-exam_flash [data-testid="stColumn"] {
+    display: flex !important;
+    flex-direction: column !important;
+    align-self: stretch !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+.st-key-exam_flash [data-testid="stColumn"] > [data-testid="stVerticalBlock"] { flex: 1 !important; }
+.st-key-exam_flash [data-testid="stColumn"] [data-testid="stElementContainer"],
+.st-key-exam_flash [data-testid="stColumn"] [data-testid="stButton"],
+.st-key-exam_flash [data-testid="stColumn"] [data-testid="stButton"] > div,
+.st-key-exam_flash [data-testid="stColumn"] [data-testid="stAlert"],
+.st-key-exam_flash button { height: 100% !important; }
+
 /* 메인 컨테이너 상단 여백 최적화 */
 .block-container {
     padding-top: 3.5rem !important;
