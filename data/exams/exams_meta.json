@@ -51,7 +51,11 @@
       "43": 3,
       "44": 2,
       "45": 4
-    }
+    },
+    "pdf_url": "",
+    "elective_enabled": false,
+    "elective_start": 35,
+    "elective_answer_keys": {}
   },
   "2026_09_mock": {
     "exam_id": "2026_09_mock",

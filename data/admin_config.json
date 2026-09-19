@@ -10,5 +10,7 @@
   },
   "gas_api_url": "",
   "gemini_api_key": "",
-  "google_drive_folder_url": "https://drive.google.com/drive/folders/sample-kice-past-exams-archive"
+  "google_drive_folder_url": "https://drive.google.com/drive/folders/sample-kice-past-exams-archive",
+  "drive_api_key": "",
+  "drive_service_account_json": ""
 }
