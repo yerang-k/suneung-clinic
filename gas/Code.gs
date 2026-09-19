@@ -32,7 +32,7 @@ function setup() {
   let sExams = ss.getSheetByName("Exams");
   if (!sExams) {
     sExams = ss.insertSheet("Exams");
-    sExams.appendRow(["exam_id", "title", "total_questions", "pdf_url", "created_at"]);
+    sExams.appendRow(["exam_id", "title", "total_questions", "pdf_url", "created_at", "extra_json"]);
     // 기본 시험지 샘플 행
     sExams.appendRow(["2027_06_mock", "2027학년도 6월 모의평가 국어영역", 45, "", "2026-06-01"]);
     sExams.appendRow(["2025_09_mock", "2025학년도 9월 모의평가 국어영역", 45, "", "2024-09-04"]);
@@ -173,15 +173,64 @@ function readExams_(ss) {
   for (let i = 1; i < rows.length; i++) {
     const exam_id = String(rows[i][0]).trim();
     if (!exam_id) continue;
-    exams[exam_id] = {
+    const ex = {
       exam_id: exam_id,
       title: String(rows[i][1] || ""),
       total_questions: Number(rows[i][2] || 45),
       pdf_url: String(rows[i][3] || ""),
       created_at: String(rows[i][4] || "")
     };
+    // 6번째 열(extra_json): 정답표 링크·정답·선택과목 등 나머지 정보
+    const extraRaw = rows[i][5];
+    if (extraRaw) {
+      try {
+        const extra = JSON.parse(String(extraRaw));
+        for (let k in extra) { ex[k] = extra[k]; }
+      } catch (err) {}
+    }
+    exams[exam_id] = ex;
   }
   return exams;
+}
+
+const EXAM_EXTRA_KEYS_ = ["answer_pdf_url", "answer_key", "elective_enabled", "elective_start", "elective_answer_keys"];
+
+function buildExamExtraJson_(ex) {
+  const extra = {};
+  EXAM_EXTRA_KEYS_.forEach(function (k) {
+    if (ex[k] !== undefined && ex[k] !== null) { extra[k] = ex[k]; }
+  });
+  return JSON.stringify(extra);
+}
+
+// 앱의 시험지 전체를 시트에 덮어쓰기 (sync_push_all 백업용)
+function overwriteExams_(ss, exams) {
+  let s = ss.getSheetByName("Exams");
+  if (!s) { setup(); s = ss.getSheetByName("Exams"); }
+  s.clearContents();
+  s.appendRow(["exam_id", "title", "total_questions", "pdf_url", "created_at", "extra_json"]);
+  for (let id in exams) {
+    const ex = exams[id];
+    s.appendRow([
+      String(ex.exam_id || id).trim(),
+      String(ex.title || ""),
+      Number(ex.total_questions) || 45,
+      String(ex.pdf_url || ""),
+      String(ex.created_at || ""),
+      buildExamExtraJson_(ex)
+    ]);
+  }
+}
+
+// 앱의 학생 명단 전체를 시트에 덮어쓰기 (sync_push_all 백업용)
+function overwriteStudents_(ss, students) {
+  let s = ss.getSheetByName("Students");
+  if (!s) { setup(); s = ss.getSheetByName("Students"); }
+  s.clearContents();
+  s.appendRow(["student_id", "name", "password"]);
+  students.forEach(function (st) {
+    s.appendRow([String(st.student_id).trim(), String(st.name || ""), String(st.password || "")]);
+  });
 }
 
 function saveExam_(ss, ex) {
@@ -202,12 +251,15 @@ function saveExam_(ss, ex) {
   const title = String(ex.title || "").trim();
   const createdAt = String(ex.created_at || new Date().toISOString().split("T")[0]);
   
+  const extraJson = buildExamExtraJson_(ex);
+
   if (foundRow > 0) {
     s.getRange(foundRow, 2).setValue(title);
     s.getRange(foundRow, 3).setValue(totalQ);
     s.getRange(foundRow, 4).setValue(pdfUrl);
+    s.getRange(foundRow, 6).setValue(extraJson);
   } else {
-    s.appendRow([targetId, title, totalQ, pdfUrl, createdAt]);
+    s.appendRow([targetId, title, totalQ, pdfUrl, createdAt, extraJson]);
   }
 }
 

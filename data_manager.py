@@ -247,7 +247,16 @@ def sync_from_google_sheets(force: bool = False):
                             local_exams = json.load(f)
                     except Exception:
                         pass
-                local_exams.update(data["exams"])
+                # 시트에는 정답표 링크·정답·선택과목 칸이 없거나 비어 있을 수 있으므로,
+                # 시험지를 통째로 덮어쓰지 않고 '시트에 값이 있는 항목만' 항목별로 합친다.
+                for eid, sheet_ex in data["exams"].items():
+                    merged = dict(local_exams.get(eid, {}))
+                    for k, v in sheet_ex.items():
+                        if v in ("", None, {}, []):
+                            merged.setdefault(k, v)
+                        else:
+                            merged[k] = v
+                    local_exams[eid] = merged
                 with open(EXAMS_META_FILE, "w", encoding="utf-8") as f:
                     json.dump(local_exams, f, ensure_ascii=False, indent=2)
 
