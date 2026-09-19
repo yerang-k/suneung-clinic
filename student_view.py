@@ -20,6 +20,14 @@ except Exception:
         st.info("📄 실물 시험지는 상단 원문 링크를 통해 새 창에서 확인하실 수 있습니다.")
     def render_csat_text_view(*args, **kwargs):
         pass
+try:
+    from pdf_viewer import (
+        get_pdf_bytes_cached, get_pdf_total_pages_cached,
+        get_page_for_question_cached, render_pdf_page_cached
+    )
+except Exception:
+    get_pdf_bytes_cached = get_pdf_total_pages_cached = None
+    get_page_for_question_cached = render_pdf_page_cached = None
 from prescription_engine import (
     get_prescription_problems, evaluate_student_defense,
     find_indexed_problem, get_all_indexed_problems
@@ -121,6 +129,25 @@ SAMPLE_QUESTIONS_TEXT = {
     }
 }
 
+def _load_exam_pdf_page(exam_id: str, q_num: int):
+    """
+    선생님이 연결한 실제 시험지 PDF에서 q_num번 문항이 있는 페이지를 찾아
+    (페이지 번호, PDF 바이트, 페이지 이미지 JPEG 바이트)를 반환. 실패하면 None.
+    """
+    if not exam_id or not exam_has_own_pdf(exam_id) or get_pdf_bytes_cached is None:
+        return None
+    try:
+        path, b64, url = get_exam_pdf_source(exam_id)
+        pdf_bytes = get_pdf_bytes_cached(pdf_url=url, pdf_path=path, base64_pdf=b64)
+        if not pdf_bytes:
+            return None
+        total = get_pdf_total_pages_cached(pdf_bytes)
+        page = get_page_for_question_cached(pdf_bytes, q_num, total)
+        img = render_pdf_page_cached(pdf_bytes, page - 1, scale=2.0)
+        return page, pdf_bytes, img
+    except Exception:
+        return None
+
 def extract_text_from_exam_pdf(exam_id: str, page_num: int):
     """로컬에 등록된 시험지 PDF가 있는 경우 해당 페이지 텍스트를 추출"""
     import os
@@ -145,9 +172,15 @@ def get_question_full_context(exam_info: dict, q_num: int):
     3. 로컬 PDF 파일 텍스트 추출 (있는 경우)
     """
     exam_id = exam_info.get("exam_id", "") if exam_info else ""
+    # 선생님이 실제 시험지 PDF를 연결한 시험은, 문항 번호만 같은 '다른 시험'의 예시 문항을
+    # 끌어다 쓰면 엉뚱한 내용이 되므로 내장 예시(2·번 조회)는 쓰지 않는다.
+    # (이 경우 AI에는 실제 PDF 페이지 이미지를 함께 전달한다)
+    has_real_pdf = exam_has_own_pdf(exam_id) if exam_id else False
     
     # 1. prescription_engine 기출 인덱스 검색
     prob = find_indexed_problem(exam_id, q_num)
+    if prob and has_real_pdf and prob.get("exam_id") != exam_id:
+        prob = None
     if prob and prob.get("passage"):
         opts = {}
         for k, v in prob.get("options", {}).items():
@@ -167,8 +200,8 @@ def get_question_full_context(exam_info: dict, q_num: int):
             "mission": prob.get("mission", "선지의 서술어가 지문과 일치하는지 단어 단위로 검증할 것")
         }
 
-    # 2. SAMPLE_QUESTIONS_TEXT 검색
-    if q_num in SAMPLE_QUESTIONS_TEXT:
+    # 2. SAMPLE_QUESTIONS_TEXT 검색 (실제 PDF가 연결된 시험에서는 사용하지 않음)
+    if q_num in SAMPLE_QUESTIONS_TEXT and not has_real_pdf:
         item = dict(SAMPLE_QUESTIONS_TEXT[q_num])
         if "genre" not in item:
             item["genre"] = "국어영역"
@@ -178,9 +211,9 @@ def get_question_full_context(exam_info: dict, q_num: int):
             item["trap_concept"] = "지문의 세부 서술어를 살짝 비틀어 오답을 유도한 평가원 함정"
         return item
 
-    # 3. 로컬 PDF 텍스트 추출
+    # 3. 로컬 PDF 텍스트 추출 (실제 PDF가 연결된 시험은 페이지 이미지를 AI에 직접 전달하므로 생략)
     approx_page = min(max(1, (q_num - 1) // 3 + 1), 16)
-    pdf_text = extract_text_from_exam_pdf(exam_id, approx_page)
+    pdf_text = None if has_real_pdf else extract_text_from_exam_pdf(exam_id, approx_page)
     if pdf_text and len(pdf_text.strip()) > 50:
         return {
             "q_num": q_num,
@@ -236,29 +269,59 @@ def build_initial_interview_question(exam_info, q_num, status_label, my_pick, co
         else:
             return f"**{q_num}번** 문항이야. [{status_label}] 상태로 **{my_pick}번**을 골랐네. 시험 당시 지문의 몇 문단, 어떤 핵심 문장이나 선지의 특정 어휘 때문에 {my_pick}번이 맞다고 판단했는지 지문 내용을 들어 핵심만 말해줘."
 
+def get_exam_page_context_parts():
+    """
+    현재 인터뷰 중인 문항이 실린 '실제 시험지 PDF 페이지'를 이미지로 만들어 AI에 함께 전달할 Part 목록을 반환.
+    (시험지 PDF가 연결되지 않았거나 페이지를 찾지 못하면 빈 목록)
+    """
+    try:
+        exam_info = st.session_state.get("exam_info")
+        queue = st.session_state.get("vulnerable_queue", [])
+        idx = st.session_state.get("queue_index", 0)
+        if not exam_info or not queue:
+            return []
+        q_num = queue[idx]["q_num"]
+        loaded = _load_exam_pdf_page(exam_info.get("exam_id", ""), q_num)
+        if not loaded or not loaded[2]:
+            return []
+        page, _, img = loaded
+        return [
+            types.Part.from_bytes(data=img, mime_type="image/jpeg"),
+            types.Part.from_text(text=(
+                f"[실제 시험지 이미지] 위 이미지는 '{exam_info.get('title', '')}' 시험지의 {page}페이지이며, "
+                f"{q_num}번 문항의 지문·발문·선지가 여기에 실려 있습니다. "
+                f"대화에서 지문이나 선지를 언급할 때는 반드시 이 이미지에 실제로 적힌 내용만 근거로 삼으십시오. "
+                f"이미지에서 {q_num}번 문항을 직접 찾아 읽고, 이 이미지에 없는 내용은 지어내지 마십시오."
+            ))
+        ]
+    except Exception:
+        return []
+
 def build_gemini_contents(chat_history):
     """
     대화 기록을 google-genai SDK의 표준 types.Content 구조로 변환합니다.
+    실제 시험지 PDF가 연결된 경우 해당 문항 페이지 이미지를 첫 사용자 메시지에 함께 담습니다.
     """
+    page_parts = get_exam_page_context_parts()
     contents = []
+    attached = False
     for idx, msg in enumerate(chat_history):
         role = "model" if msg.get("role") == "assistant" else "user"
         text = str(msg.get("content", "")).strip()
         if not text:
             continue
         if idx == 0 and role == "model":
-            contents.append(
-                types.Content(
-                    role="user",
-                    parts=[types.Part.from_text(text="시험 당시 제 사고 과정을 복원하고 싶습니다. 인터뷰를 시작해 주세요.")]
-                )
-            )
+            first_parts = list(page_parts) + [types.Part.from_text(text="시험 당시 제 사고 과정을 복원하고 싶습니다. 인터뷰를 시작해 주세요.")]
+            attached = bool(page_parts)
+            contents.append(types.Content(role="user", parts=first_parts))
         contents.append(
             types.Content(
                 role=role,
                 parts=[types.Part.from_text(text=text)]
             )
         )
+    if page_parts and not attached and contents:
+        contents.insert(0, types.Content(role="user", parts=list(page_parts)))
     return contents
 
 def safe_parse_json(text: str):
@@ -1157,7 +1220,7 @@ def get_interview_system_prompt(student, exam_info, q_num, status_label, my_pick
 - 문항 번호: {q_num}번
 - 학생이 고른 선지: {my_pick}번 (풀이 상태: {status_label})
 - 공식 정답 선지: {corr_num}번
-- 지침: 문항 텍스트가 인앱에 미등록된 경우 학생에게 지문의 핵심 어휘와 문장을 직접 질문하여 끄집어내십시오.
+- 지침: 대화에 시험지 페이지 이미지가 첨부되어 있으면 그 이미지의 지문·선지를 직접 읽고 근거로 삼으십시오(이미지에 없는 내용은 절대 지어내지 말 것). 이미지가 없을 때만 학생에게 지문의 핵심 어휘와 문장을 직접 질문하여 끄집어내십시오.
 """
 
     past_profile = get_student_vulnerability_profile(student["student_id"])
