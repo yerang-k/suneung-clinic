@@ -1484,9 +1484,23 @@ def render_interview_stage(client):
                                     st.rerun()
 
             # 1. 고정 높이 스크롤 메시지 박스 (기존보다 길고 시원하게 확대)
-            chat_box = st.container(height=VIEWER_HEIGHT - 20)
+            chat_box = st.container(height=VIEWER_HEIGHT - 20, key="chat_scroll_box")
             with chat_box:
                 render_kakaotalk_chat(st.session_state.chat_history)
+            # 새 메시지가 보이도록 채팅 박스를 항상 맨 아래로 스크롤 (메시지 수가 바뀔 때마다 실행)
+            import streamlit.components.v1 as _components
+            _components.html(
+                f"""<script>/* {len(st.session_state.chat_history)} */
+                const doc = window.parent.document;
+                const go = () => {{
+                  const box = doc.querySelector('.st-key-chat_scroll_box');
+                  if (!box) return;
+                  [box, ...box.querySelectorAll('*')].forEach(el => {{
+                    if (el.scrollHeight > el.clientHeight + 5 && /auto|scroll/.test(getComputedStyle(el).overflowY)) el.scrollTop = el.scrollHeight;
+                  }});
+                }};
+                go(); setTimeout(go, 150); setTimeout(go, 500);
+                </script>""", height=0)
 
             # 2. 🚨 에러가 발생한 경우 고정 표시 (채팅창 바로 아래)
             if st.session_state.get("last_chat_error"):
