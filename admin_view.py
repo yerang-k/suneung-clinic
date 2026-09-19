@@ -436,7 +436,7 @@ def render_admin_dashboard(client=None):
                             elective_enabled=new_elective_enabled,
                             elective_answer_keys=new_elective_answers
                         )
-                        for k in ["new_extracted_common", "new_extracted_subj_a", "new_extracted_subj_b"]:
+                        for k in ["new_extracted_common", "new_extracted_subj_a", "new_extracted_subj_b", "new_extract_msg"]:
                             st.session_state.pop(k, None)
                         st.session_state["_exam_flash"] = f"✅ '{title_c}' 시험지가 성공적으로 등록되었습니다!"
                         st.rerun()
@@ -563,7 +563,7 @@ def render_admin_dashboard(client=None):
                             elective_enabled=edit_elective_enabled,
                             elective_answer_keys=edit_elective_answers
                         )
-                        for k in [f"exist_{selected_eid}_extracted_common", f"exist_{selected_eid}_extracted_subj_a", f"exist_{selected_eid}_extracted_subj_b"]:
+                        for k in [f"exist_{selected_eid}_extracted_common", f"exist_{selected_eid}_extracted_subj_a", f"exist_{selected_eid}_extracted_subj_b", f"exist_{selected_eid}_extract_msg"]:
                             st.session_state.pop(k, None)
                         st.session_state["_exam_flash"] = f"✅ '{edit_title}' 시험지 설정(기본정보, PDF, 정답표)이 모두 성공적으로 저장되었습니다!"
                         st.rerun()
