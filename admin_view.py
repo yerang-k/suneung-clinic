@@ -10,7 +10,8 @@ from data_manager import (
     download_pdf_from_drive_or_url, extract_answers_from_drive_or_url,
     get_submissions, get_student_vulnerability_profile, get_student_submissions,
     sync_from_google_sheets, push_all_to_google_sheets, get_last_sync_time, get_gas_api_url,
-    list_drive_folder_pdfs, extract_elective_answers_from_pdf, ELECTIVE_SUBJECTS, ELECTIVE_START_DEFAULT
+    list_drive_folder_pdfs, extract_elective_answers_from_pdf, ELECTIVE_SUBJECTS, ELECTIVE_START_DEFAULT,
+    exam_has_own_pdf
 )
 try:
     from pdf_viewer import render_pdf_viewer
@@ -78,6 +79,16 @@ def render_drive_folder_pdf_picker(target_session_key: str, picker_id: str, mast
     msg_key = f"_picked_msg_{picker_id}"
     if st.session_state.get(msg_key):
         st.success(f"✅ {st.session_state.pop(msg_key)}")
+
+def _int_keys(d) -> dict:
+    """저장된 정답표는 JSON이라 키가 문자열('35')이므로, 화면 표시/조회용으로 정수 키로 변환"""
+    out = {}
+    for k, v in (d or {}).items():
+        try:
+            out[int(k)] = int(v)
+        except Exception:
+            pass
+    return out
 
 def _format_answers(answer_dict: dict, start: int, end: int) -> str:
     """{문항번호: 정답}을 start~end번 순서의 '11423 53423' 형태(5개씩 공백 구분) 문자열로 변환"""
@@ -216,7 +227,7 @@ def render_answer_key_editor(prefix: str, total_q: int, cur_common_key: dict, cu
         col_e1, col_e2 = st.columns(2)
         for subj, col, ex_key in [(subj_a, col_e1, extracted_a_key), (subj_b, col_e2, extracted_b_key)]:
             with col:
-                extracted_subj = st.session_state.get(ex_key) or cur_elective_keys.get(subj) or {}
+                extracted_subj = _int_keys(st.session_state.get(ex_key) or cur_elective_keys.get(subj) or {})
                 if extracted_subj:
                     subj_parts = [str(extracted_subj.get(i, "")) for i in range(elective_start, total_q + 1)]
                     subj_preview = " ".join(["".join(subj_parts[j:j + 5]) for j in range(0, len(subj_parts), 5)]).strip()
@@ -460,11 +471,27 @@ def render_admin_dashboard(client=None):
                     st.markdown(f"#### ⚙️ [{cur_exam['title']}] 상세 설정")
                     st.caption(f"시험 코드: `{cur_exam['exam_id']}` | 등록일: {cur_exam.get('created_at', '-')}")
                 with col_h2:
-                    pdf_badge = "🟢 PDF 연결됨" if has_pdf else "🔴 PDF 없음"
+                    # 저장된 설정 기준 상태 (내장 프리셋/마스터폴더 폴백은 '연결'로 보지 않음)
+                    has_own_pdf = exam_has_own_pdf(selected_eid)
+                    pdf_badge = "🟢 PDF 연결됨" if has_own_pdf else "🔴 PDF 없음"
                     has_ans_drive = bool(cur_exam.get("answer_pdf_url"))
                     ans_drive_badge = " (🔗 드라이브)" if has_ans_drive else ""
-                    ans_badge = f"🟢 정답표 ({ans_count}/{total_q}){ans_drive_badge}" if ans_count >= total_q else (f"🟡 정답표 일부 ({ans_count}/{total_q}){ans_drive_badge}" if ans_count > 0 else f"🔴 정답표 미등록{ans_drive_badge}")
-                    st.markdown(f"<div style='text-align: right; padding-top: 5px;'><b>상태:</b> {pdf_badge} | {ans_badge}</div>", unsafe_allow_html=True)
+                    if cur_exam.get("elective_enabled"):
+                        common_end_n = ELECTIVE_START_DEFAULT - 1
+                        elec_need = max(total_q - common_end_n, 0)
+                        elec_keys = cur_exam.get("elective_answer_keys", {})
+                        c_n = sum(1 for q in cur_key if q <= common_end_n)
+                        subj_ns = [len(_int_keys(elec_keys.get(sj, {}))) for sj in ELECTIVE_SUBJECTS]
+                        detail = f"공통 {c_n}/{common_end_n} · 화작 {subj_ns[0]}/{elec_need} · 언매 {subj_ns[1]}/{elec_need}"
+                        if c_n >= common_end_n and all(n >= elec_need for n in subj_ns):
+                            ans_badge = f"🟢 정답표 ({detail}){ans_drive_badge}"
+                        elif c_n == 0 and not any(subj_ns):
+                            ans_badge = f"🔴 정답표 미등록{ans_drive_badge}"
+                        else:
+                            ans_badge = f"🟡 정답표 일부 ({detail}){ans_drive_badge}"
+                    else:
+                        ans_badge = f"🟢 정답표 ({ans_count}/{total_q}){ans_drive_badge}" if ans_count >= total_q else (f"🟡 정답표 일부 ({ans_count}/{total_q}){ans_drive_badge}" if ans_count > 0 else f"🔴 정답표 미등록{ans_drive_badge}")
+                    st.markdown(f"<div style='text-align: right; padding-top: 5px;'><b>상태(저장 기준):</b> {pdf_badge} | {ans_badge}</div>", unsafe_allow_html=True)
 
                 st.divider()
 
@@ -480,7 +507,7 @@ def render_admin_dashboard(client=None):
 
                 # 3. 원문 PDF 연결 설정
                 st.markdown("##### 2️⃣ 원문 PDF 연결")
-                if has_pdf:
+                if exam_has_own_pdf(selected_eid):
                     src_desc = f"구글 드라이브 링크 연결됨 (`{cur_exam.get('pdf_url')}`)" if cur_exam.get('pdf_url') else f"로컬 파일 저장됨 (`{cur_exam.get('pdf_filename')}`)"
                     st.success(f"현재 PDF 상태: **{src_desc}**")
                 else:
