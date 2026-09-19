@@ -1403,10 +1403,10 @@ def render_interview_stage(client):
     </style>
     """, unsafe_allow_html=True)
 
-    col_paper, col_chat = st.columns([1.1, 1.1], gap="large")
+    col_paper, col_chat = st.columns([1.5, 1], gap="large")
 
     # [좌측 열] 시험지 원문 뷰어 (독립 스크롤)
-    VIEWER_HEIGHT = 600
+    VIEWER_HEIGHT = 780
 
     with col_paper:
         pdf_path, pdf_b64, pdf_url = get_exam_pdf_source(exam_info["exam_id"])
@@ -1774,7 +1774,7 @@ def render_report_stage(client):
                     st.session_state.training_feedback = None
                     st.rerun()
 
-            col_train_pdf, col_train_act = st.columns([1.1, 1.1], gap="large")
+            col_train_pdf, col_train_act = st.columns([1.5, 1], gap="large")
 
             # 좌측: 해당 시험지 PDF 원문 뷰어 (해당 문제 페이지로 자동 점프) 및 텍스트 탭 제공
             with col_train_pdf:
@@ -1784,7 +1784,7 @@ def render_report_stage(client):
                 
                 with tab_tr_pdf:
                     if target_path or target_b64 or target_url:
-                        render_pdf_viewer(base64_pdf=target_b64, pdf_url=target_url, pdf_path=target_path, initial_page=prob["page"], height=580)
+                        render_pdf_viewer(base64_pdf=target_b64, pdf_url=target_url, pdf_path=target_path, initial_page=prob["page"], height=780)
                     else:
                         st.info(f"선생님의 구글 드라이브 또는 기출 저장소에서 '{prob['exam_title']}' 원문을 연결할 수 있습니다.")
                         if master_drive_url:
@@ -1797,7 +1797,7 @@ def render_report_stage(client):
                             """, unsafe_allow_html=True)
 
                 with tab_tr_text:
-                    with st.container(height=580):
+                    with st.container(height=780):
                         render_csat_text_view(prob, my_pick=0, status_tag=f"{prob['year']} {prob['month']} | {prob['genre']}")
 
             # 우측: 방어 미션 수행 및 AI 피드백
