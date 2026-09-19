@@ -335,6 +335,16 @@ def render_admin_dashboard(client=None):
         st.subheader("📄 시험지 등록 및 원문 PDF 관리")
         st.caption("시험지를 선택하여 기본 정보, 원문 PDF(파일/구글 드라이브 링크), 공식 정답표를 한 화면에서 한 번에 설정하고 저장합니다.")
 
+        flash = st.session_state.get("_exam_flash")
+        if flash:
+            col_f1, col_f2 = st.columns([6, 1])
+            with col_f1:
+                st.success(flash)
+            with col_f2:
+                if st.button("닫기", key="btn_close_exam_flash", use_container_width=True):
+                    st.session_state.pop("_exam_flash", None)
+                    st.rerun()
+
         tab2_cfg = get_admin_config()
         master_folder_url = tab2_cfg.get("google_drive_folder_url", "")
         drive_sa_json = tab2_cfg.get("drive_service_account_json", "")
@@ -428,7 +438,7 @@ def render_admin_dashboard(client=None):
                         )
                         for k in ["new_extracted_common", "new_extracted_subj_a", "new_extracted_subj_b"]:
                             st.session_state.pop(k, None)
-                        st.success(f"✅ '{title_c}' 시험지가 성공적으로 등록되었습니다!")
+                        st.session_state["_exam_flash"] = f"✅ '{title_c}' 시험지가 성공적으로 등록되었습니다!"
                         st.rerun()
 
         # ==========================================
@@ -555,7 +565,7 @@ def render_admin_dashboard(client=None):
                         )
                         for k in [f"exist_{selected_eid}_extracted_common", f"exist_{selected_eid}_extracted_subj_a", f"exist_{selected_eid}_extracted_subj_b"]:
                             st.session_state.pop(k, None)
-                        st.success(f"✅ '{edit_title}' 시험지 설정(기본정보, PDF, 정답표)이 모두 성공적으로 저장되었습니다!")
+                        st.session_state["_exam_flash"] = f"✅ '{edit_title}' 시험지 설정(기본정보, PDF, 정답표)이 모두 성공적으로 저장되었습니다!"
                         st.rerun()
 
                 with col_del:
