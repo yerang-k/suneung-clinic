@@ -701,7 +701,7 @@ def extract_answers_from_pdf(pdf_bytes: bytes, client=None) -> tuple[dict, str]:
     """
     평가원 공식 정답표 PDF 파일에서 1~45번 정답을 자동으로 추출하여 {문항번호: 정답번호} 딕셔너리로 반환합니다.
     1. pypdf를 통해 텍스트를 우선 추출
-    2. Gemini Multimodal AI (gemini-2.5-flash)를 활용해 PDF 표 및 텍스트에서 1~45번 정답을 정밀 판독
+    2. Gemini Multimodal AI (call_gemini_safe 모델 폴백)를 활용해 PDF 표 및 텍스트에서 1~45번 정답을 정밀 판독
     3. AI 부재 또는 오류 시 정규식 패턴 파서로 자동 폴백
     """
     if not pdf_bytes:
@@ -756,8 +756,8 @@ def extract_answers_from_pdf(pdf_bytes: bytes, client=None) -> tuple[dict, str]:
                 parts.append(types.Part.from_text(text=f"[추출된 텍스트 내용]\n{extracted_text[:4000]}"))
             parts.append(types.Part.from_text(text=prompt))
 
-            res = client.models.generate_content(
-                model='gemini-2.5-flash',
+            res = call_gemini_safe(
+                client,
                 contents=parts,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -869,8 +869,8 @@ def extract_elective_answers_from_pdf(pdf_bytes: bytes, client=None, elective_st
             parts.append(types.Part.from_text(text=f"[추출된 텍스트 내용]\n{extracted_text[:6000]}"))
         parts.append(types.Part.from_text(text=prompt))
 
-        res = client.models.generate_content(
-            model='gemini-2.5-flash',
+        res = call_gemini_safe(
+            client,
             contents=parts,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -1478,9 +1478,10 @@ def call_gemini_safe(client, contents, config=None):
     # gemini-1.5 계열은 구글이 퇴역시켜 전부 404가 나던 상태였음.
     # "-latest" 별칭은 구글이 내부적으로 최신 세대 모델로 자동 갱신하므로 특정 버전 하드코딩보다 오래 간다.
     candidate_models = [
-        "gemini-2.5-flash",
         "gemini-flash-latest",
-        "gemini-2.5-pro"
+        "gemini-3.6-flash",
+        "gemini-3.7-flash",
+        "gemini-2.5-flash"
     ]
 
     attempted_log = []
